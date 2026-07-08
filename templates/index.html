@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Photobooth</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        function toggleAdvanced() {
+            var el = document.getElementById('advancedSettings');
+            if (el.style.display === 'none') {
+                el.style.display = 'block';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Photobooth Pro</h1>
+        <p>Automate your photostrips with custom templates!</p>
+        
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="template">Upload Custom Template (PNG with transparent windows):</label>
+                <input type="file" name="template" id="template" accept="image/png">
+                <small>Optional. If left blank, a standard white background is used.</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="photos">Select Client Photos (1 to 4):</label>
+                <input type="file" name="photos" id="photos" multiple accept="image/*" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="copies">Number of Strips (Max 3 per page):</label>
+                <input type="number" name="copies" id="copies" min="1" max="3" value="2" required>
+            </div>
+            
+            <div class="form-group">
+                <button type="button" class="btn-secondary" onclick="toggleAdvanced()">⚙️ Advanced: Adjust Photo Positions</button>
+            </div>
+            
+            <div id="advancedSettings" style="display: none; background: #eee; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <p><i>Leave blank to automatically space photos evenly. Only use if your template requires custom sizes/positions. Enter values in pixels.</i></p>
+                {% for i in range(4) %}
+                <div style="margin-bottom: 10px;">
+                    <strong>Photo {{ i + 1 }}</strong>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" name="x_{{ i }}" placeholder="X" style="width: 25%">
+                        <input type="number" name="y_{{ i }}" placeholder="Y" style="width: 25%">
+                        <input type="number" name="w_{{ i }}" placeholder="Width" style="width: 25%">
+                        <input type="number" name="h_{{ i }}" placeholder="Height" style="width: 25%">
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <button type="submit">Generate Preview & Layout</button>
+        </form>
+        
+        {% if preview_img %}
+        <div class="result">
+            <h2>Preview</h2>
+            <img src="{{ url_for('preview', filename=preview_img) }}" class="preview-img" alt="Photostrip Preview">
+            
+            <h2>Success! 🎉</h2>
+            <a href="{{ url_for('download', filename=pdf_file) }}" class="btn">Download Print-Ready PDF</a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
