@@ -62,7 +62,13 @@
             <button onclick="saveLayout()" style="background:#2ecc71;">Save Config</button>
             <button id="drawModeBtn" onclick="toggleDrawMode()" style="background:#9b59b6;">Draw Polygon Mask</button>
             <button onclick="addSlot()">+ Add 4-Point Slot</button>
-            <span style="margin-left: 20px;">Drag corners to map perspective. Drag center to move shape.</span>
+            <div style="margin-left:20px; display:flex; gap:2px; background:#444; padding:2px; border-radius:4px;">
+                <button onclick="nudgeActiveSlot(0, -1)" title="Nudge Up">⬆️</button>
+                <button onclick="nudgeActiveSlot(0, 1)" title="Nudge Down">⬇️</button>
+                <button onclick="nudgeActiveSlot(-1, 0)" title="Nudge Left">⬅️</button>
+                <button onclick="nudgeActiveSlot(1, 0)" title="Nudge Right">➡️</button>
+            </div>
+            <span style="margin-left: 10px; font-size:12px;">Drag corners/edges to map perspective. Drag center to move shape. Or use Arrow Keys.</span>
         </div>
         <div style="display: flex; flex: 1; overflow: hidden;">
             <div class="canvas-container">

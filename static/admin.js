@@ -225,8 +225,8 @@ function initCanvasEvents() {
         }
     };
 
-    let dragStartX = 0;
-    let dragStartY = 0;
+    let dragStartMidX = 0;
+    let dragStartMidY = 0;
 
     canvas.onmousedown = e => {
         if(e.button !== 0) return; // Left click only
@@ -263,6 +263,28 @@ function initCanvasEvents() {
                 return;
             }
         }
+
+        // Check edge midpoints (only for 4-point rects)
+        for(let i=slots.length-1; i>=0; i--) {
+            const pts = slots[i].points;
+            if(pts.length === 4) {
+                for(let j=0; j<4; j++) {
+                    const p1 = pts[j];
+                    const p2 = pts[(j+1)%4];
+                    const mx = (p1.x + p2.x) / 2;
+                    const my = (p1.y + p2.y) / 2;
+                    if(dist(x, y, mx, my) < POINT_RADIUS * 2) {
+                        draggedMidpointSlot = i;
+                        draggedMidpointEdge = j; // 0=Top, 1=Right, 2=Bottom, 3=Left
+                        activeSlotIndex = i;
+                        dragStartMidX = x;
+                        dragStartMidY = y;
+                        renderSlotPanel();
+                        return;
+                    }
+                }
+            }
+        }
     };
     
     canvas.onmousemove = e => {
@@ -289,30 +311,80 @@ function initCanvasEvents() {
             renderEditor();
             return;
         }
+
+        if(draggedMidpointSlot !== -1) {
+            const dx = x - dragStartMidX;
+            const dy = y - dragStartMidY;
+            const pts = slots[draggedMidpointSlot].points;
+            const j = draggedMidpointEdge;
+            pts[j].x += dx; pts[j].y += dy;
+            pts[(j+1)%4].x += dx; pts[(j+1)%4].y += dy;
+            dragStartMidX = x;
+            dragStartMidY = y;
+            renderEditor();
+            return;
+        }
         
         // Hover state
         hoverPoint = null;
         hoverCenterSlotIndex = -1;
+        hoverMidpointIndex = -1;
         for(let i=0; i<slots.length; i++) {
             const s = slots[i];
             const c = getCenter(s.points);
-            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) {
-                hoverCenterSlotIndex = i;
+            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) hoverCenterSlotIndex = i;
+            
+            if(s.points.length === 4) {
+                for(let j=0; j<4; j++) {
+                    const mx = (s.points[j].x + s.points[(j+1)%4].x) / 2;
+                    const my = (s.points[j].y + s.points[(j+1)%4].y) / 2;
+                    if(dist(x, y, mx, my) < POINT_RADIUS * 2) {
+                        hoverMidpointIndex = j;
+                        hoverCenterSlotIndex = -1;
+                    }
+                }
             }
+
             for(let pt of s.points) {
                 if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) {
                     hoverPoint = pt;
-                    hoverCenterSlotIndex = -1; // prioritize point over center
+                    hoverCenterSlotIndex = -1;
+                    hoverMidpointIndex = -1;
                 }
             }
         }
-        canvas.style.cursor = (hoverPoint || hoverCenterSlotIndex !== -1) ? 'grab' : 'crosshair';
+        canvas.style.cursor = (hoverPoint || hoverCenterSlotIndex !== -1 || hoverMidpointIndex !== -1) ? 'grab' : 'crosshair';
         renderEditor();
     };
     
-    canvas.onmouseup = () => { draggedPoint = null; draggedCenterSlotIndex = -1; };
-    canvas.onmouseleave = () => { draggedPoint = null; draggedCenterSlotIndex = -1; hoverPoint = null; hoverCenterSlotIndex = -1; renderEditor(); };
+    canvas.onmouseup = () => { draggedPoint = null; draggedCenterSlotIndex = -1; draggedMidpointSlot = -1; };
+    canvas.onmouseleave = () => { draggedPoint = null; draggedCenterSlotIndex = -1; draggedMidpointSlot = -1; hoverPoint = null; hoverCenterSlotIndex = -1; hoverMidpointIndex = -1; renderEditor(); };
+
+    // Keyboard nudge
+    document.addEventListener('keydown', e => {
+        if(!editorActive || activeSlotIndex === -1 || isDrawingMode) return;
+        const step = e.shiftKey ? 10 : 1;
+        let dx = 0, dy = 0;
+        if(e.key === 'ArrowUp') dy = -step;
+        if(e.key === 'ArrowDown') dy = step;
+        if(e.key === 'ArrowLeft') dx = -step;
+        if(e.key === 'ArrowRight') dx = step;
+        
+        if(dx !== 0 || dy !== 0) {
+            e.preventDefault();
+            slots[activeSlotIndex].points.forEach(p => { p.x += dx; p.y += dy; });
+            renderEditor();
+        }
+    });
 }
+
+function nudgeActiveSlot(dx, dy) {
+    if(activeSlotIndex === -1) return;
+    slots[activeSlotIndex].points.forEach(p => { p.x += dx; p.y += dy; });
+    renderEditor();
+}
+
+window.nudgeActiveSlot = nudgeActiveSlot;
 
 function getMousePos(evt) {
     const rect = canvas.getBoundingClientRect();
@@ -341,8 +413,37 @@ function renderEditor() {
         const isActive = (i === activeSlotIndex);
         
         ctx.beginPath();
-        ctx.moveTo(pts[0].x, pts[0].y);
-        for(let k=1; k<pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+        if(s.shape === 'circle' && pts.length === 4) {
+            let min_x = Math.min(pts[0].x, pts[1].x, pts[2].x, pts[3].x);
+            let max_x = Math.max(pts[0].x, pts[1].x, pts[2].x, pts[3].x);
+            let min_y = Math.min(pts[0].y, pts[1].y, pts[2].y, pts[3].y);
+            let max_y = Math.max(pts[0].y, pts[1].y, pts[2].y, pts[3].y);
+            let cx = (min_x + max_x) / 2;
+            let cy = (min_y + max_y) / 2;
+            let rx = (max_x - min_x) / 2;
+            let ry = (max_y - min_y) / 2;
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+        } else if(s.shape === 'star' && pts.length === 4) {
+            let min_x = Math.min(pts[0].x, pts[1].x, pts[2].x, pts[3].x);
+            let max_x = Math.max(pts[0].x, pts[1].x, pts[2].x, pts[3].x);
+            let min_y = Math.min(pts[0].y, pts[1].y, pts[2].y, pts[3].y);
+            let max_y = Math.max(pts[0].y, pts[1].y, pts[2].y, pts[3].y);
+            let cx = (min_x + max_x) / 2;
+            let cy = (min_y + max_y) / 2;
+            let tw = max_x - min_x, th = max_y - min_y;
+            let r_out = Math.min(tw, th) / 2;
+            let r_in = r_out * 0.4;
+            for (let j = 0; j < 10; j++) {
+                let r = (j % 2 === 0) ? r_out : r_in;
+                let angle = Math.PI/2 - j * (Math.PI/5);
+                let px = cx + r * Math.cos(angle);
+                let py = cy - r * Math.sin(angle);
+                if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+        } else {
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for(let k=1; k<pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+        }
         ctx.closePath();
         
         ctx.fillStyle = isActive ? 'rgba(46, 204, 113, 0.3)' : 'rgba(52, 152, 219, 0.3)';
@@ -350,6 +451,19 @@ function renderEditor() {
         ctx.strokeStyle = isActive ? '#2ecc71' : '#3498db';
         ctx.lineWidth = 4;
         ctx.stroke();
+
+        // Always draw the perspective bounding box faintly if it's not a rect
+        if(s.shape !== 'rect' && pts.length === 4) {
+            ctx.beginPath();
+            ctx.moveTo(pts[0].x, pts[0].y);
+            for(let k=1; k<pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+            ctx.closePath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
         
         pts.forEach((pt, pi) => {
             ctx.beginPath();
@@ -358,6 +472,18 @@ function renderEditor() {
             ctx.fill();
             ctx.stroke();
         });
+
+        if(pts.length === 4) {
+            for(let j=0; j<4; j++) {
+                const mx = (pts[j].x + pts[(j+1)%4].x) / 2;
+                const my = (pts[j].y + pts[(j+1)%4].y) / 2;
+                ctx.beginPath();
+                ctx.rect(mx - 6, my - 6, 12, 12);
+                ctx.fillStyle = (isActive) ? '#3498db' : '#95a5a6';
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
         
         // Draw Center handle
         const c = getCenter(pts);
