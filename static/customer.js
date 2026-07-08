@@ -133,14 +133,31 @@ async function startSession() {
     }
 }
 
+let currentFacingMode = 'user';
+
 async function startCamera() {
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1920, height: 1080 } });
+        if(stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: currentFacingMode, 
+                width: { ideal: 1920 }, 
+                height: { ideal: 1080 } 
+            } 
+        });
         document.getElementById('videoElement').srcObject = stream;
     } catch (err) {
         console.error(err);
         alert("Camera access denied or unavailable.");
     }
+}
+
+function flipCamera() {
+    playClick();
+    currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+    startCamera();
 }
 
 function stopCamera() {

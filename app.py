@@ -143,13 +143,13 @@ def generate(session_id):
     if not photos: return jsonify({"error": "No photos selected"}), 400
     
     timestamp = int(time.time())
-    strip_filename = f"strip_{session_id}_{timestamp}.jpg"
+    strip_filename = f"{session_id}_strip_{timestamp}.jpg"
     strip_path = os.path.join(app.config['OUTPUT_FOLDER'], strip_filename)
     
     # We use empty custom_coords for auto-spacing
     create_photostrip(photos, strip_path, template_path, [])
     
-    pdf_filename = f"print_{session_id}_{timestamp}.pdf"
+    pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)
     num_copies = settings.get('copies', 2)
     create_a4_layout(strip_path, num_copies, pdf_path)
@@ -165,7 +165,7 @@ def generate(session_id):
 
 @app.route('/api/slideshow')
 def slideshow():
-    strips = sorted([f for f in os.listdir(app.config['OUTPUT_FOLDER']) if f.startswith('strip_')], reverse=True)
+    strips = sorted([f for f in os.listdir(app.config['OUTPUT_FOLDER']) if '_strip_' in f or f.startswith('strip_')], reverse=True)
     return jsonify({"images": [f"/outputs/{f}" for f in strips]})
 
 @app.route('/outputs/<filename>')
