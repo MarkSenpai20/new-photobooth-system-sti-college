@@ -159,10 +159,13 @@ async function takePhoto() {
     }, 'image/jpeg', 0.95);
 }
 
+let libraryPhotos = [];
+
 async function loadLibrary() {
     if(!sessionId) return;
     const res = await fetch(`/api/session/${sessionId}/photos`);
     const data = await res.json();
+    libraryPhotos = data.photos;
     const lib = document.getElementById('photoLibrary');
     lib.innerHTML = '';
     data.photos.forEach(p => {
@@ -215,13 +218,121 @@ async function finishCapture() {
         img.style.border = '4px solid var(--border-pink)';
         img.style.borderRadius = '8px';
         img.style.cursor = 'pointer';
-        img.onclick = () => { playClick(); generateStrip(t); };
+        img.onclick = () => { playClick(); selectTemplate(t); };
         grid.appendChild(img);
     });
 }
 
-async function generateStrip(templateName) {
+let selectedTemplateName = "";
+let arrangementSlots = [];
+let maxSlots = 0;
+
+async function selectTemplate(tName) {
+    selectedTemplateName = tName;
     document.getElementById('templateSelectionArea').style.display = 'none';
+    
+    try {
+        const res = await fetch(`/api/templates/${tName}/config`);
+        const data = await res.json();
+        maxSlots = data.slots ? data.slots.length : 1;
+    } catch(e) {
+        maxSlots = 1;
+    }
+
+    if (maxSlots === 0) maxSlots = 1;
+
+    if (libraryPhotos.length === 1) {
+        arrangementSlots = new Array(maxSlots).fill(libraryPhotos[0]);
+        generateFromArrangement();
+        return;
+    }
+
+    arrangementSlots = new Array(maxSlots).fill(null);
+    document.getElementById('arrangementArea').style.display = 'block';
+    renderArrangementUI();
+}
+
+function renderArrangementUI() {
+    const slotsContainer = document.getElementById('arrangementSlots');
+    slotsContainer.innerHTML = '';
+    
+    arrangementSlots.forEach((photoName, idx) => {
+        const box = document.createElement('div');
+        box.style.width = '100px';
+        box.style.height = '100px';
+        box.style.border = '2px dashed #999';
+        box.style.borderRadius = '8px';
+        box.style.display = 'flex';
+        box.style.alignItems = 'center';
+        box.style.justifyContent = 'center';
+        box.style.background = '#eee';
+        box.style.cursor = 'pointer';
+        box.style.overflow = 'hidden';
+        
+        box.draggable = true;
+        box.ondragstart = (e) => { e.dataTransfer.setData('text/plain', idx); };
+        box.ondragover = (e) => { e.preventDefault(); };
+        box.ondrop = (e) => {
+            e.preventDefault();
+            const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+            const temp = arrangementSlots[fromIdx];
+            arrangementSlots[fromIdx] = arrangementSlots[idx];
+            arrangementSlots[idx] = temp;
+            playClick();
+            renderArrangementUI();
+        };
+
+        if (photoName) {
+            const img = document.createElement('img');
+            img.src = `/api/session/${sessionId}/photos/${photoName}?t=${Date.now()}`;
+            img.style.width = '100%';
+            img.style.height = '100%';
+            img.style.objectFit = 'cover';
+            box.appendChild(img);
+            box.onclick = () => {
+                playClick();
+                arrangementSlots[idx] = null;
+                renderArrangementUI();
+            };
+        } else {
+            box.innerText = `Slot ${idx+1}`;
+        }
+        slotsContainer.appendChild(box);
+    });
+
+    const libContainer = document.getElementById('arrangementLibrary');
+    libContainer.innerHTML = '';
+    libraryPhotos.forEach(p => {
+        const img = document.createElement('img');
+        img.src = `/api/session/${sessionId}/photos/${p}?t=${Date.now()}`;
+        img.style.width = '80px';
+        img.style.height = '80px';
+        img.style.objectFit = 'cover';
+        img.style.cursor = 'pointer';
+        img.style.borderRadius = '4px';
+        img.onclick = () => {
+            playClick();
+            const emptyIdx = arrangementSlots.indexOf(null);
+            if (emptyIdx !== -1) {
+                arrangementSlots[emptyIdx] = p;
+                renderArrangementUI();
+            }
+        };
+        libContainer.appendChild(img);
+    });
+
+    const btn = document.getElementById('generateArrangementBtn');
+    btn.disabled = arrangementSlots.includes(null);
+}
+
+function backToTemplateSelection() {
+    playClick();
+    document.getElementById('arrangementArea').style.display = 'none';
+    document.getElementById('templateSelectionArea').style.display = 'block';
+}
+
+async function generateFromArrangement() {
+    document.getElementById('arrangementArea').style.display = 'none';
     document.getElementById('generateTitle').style.display = 'block';
     document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
     document.getElementById('generateLoader').style.display = 'block';
@@ -229,7 +340,10 @@ async function generateStrip(templateName) {
     const res = await fetch(`/api/session/${sessionId}/generate`, { 
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({template: templateName})
+        body: JSON.stringify({
+            template: selectedTemplateName,
+            selected_photos: arrangementSlots
+        })
     });
     const data = await res.json();
     

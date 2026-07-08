@@ -122,12 +122,25 @@ def generate(session_id):
     settings = load_settings()
     session_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
     
-    photos = sorted([os.path.join(session_dir, f) for f in os.listdir(session_dir) if f.endswith('.jpg')])
-    if not photos: return jsonify({"error": "No photos"}), 400
+    all_photos = sorted([f for f in os.listdir(session_dir) if f.endswith('.jpg')])
+    if not all_photos: return jsonify({"error": "No photos in session"}), 400
     
     data = request.json or {}
     template_name = data.get('template', settings.get('active_template'))
     template_path = os.path.join(app.config['TEMPLATE_FOLDER'], template_name) if template_name else None
+    
+    if 'selected_photos' in data and isinstance(data['selected_photos'], list) and data['selected_photos']:
+        photos = []
+        for filename in data['selected_photos']:
+            p = os.path.join(session_dir, filename)
+            if os.path.exists(p):
+                photos.append(p)
+            else:
+                return jsonify({"error": f"Photo {filename} not found"}), 400
+    else:
+        photos = [os.path.join(session_dir, f) for f in all_photos]
+    
+    if not photos: return jsonify({"error": "No photos selected"}), 400
     
     timestamp = int(time.time())
     strip_filename = f"strip_{session_id}_{timestamp}.jpg"

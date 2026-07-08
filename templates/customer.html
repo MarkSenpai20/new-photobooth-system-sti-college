@@ -47,12 +47,30 @@
         <!-- STATE 3: REVIEW / GENERATE SCREEN -->
         <div id="screen-review" class="screen">
             <div class="panel">
-                <div id="templateSelectionArea">
-                    <h1>Choose your Template 🎨</h1>
-                    <div id="templateGrid" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:20px; max-height:300px; overflow-y:auto;"></div>
-                </div>
-                
-                <h1 id="generateTitle" style="display:none;">Generating Magic... ✨</h1>
+                <div id="templateSelectionArea" style="display: none;">
+            <h2 style="color: #c0392b; margin-bottom: 20px;">Choose your Template 🎨</h2>
+            <div class="template-grid" id="templateGrid"></div>
+        </div>
+
+        <div id="arrangementArea" style="display: none; width: 100%; max-width: 800px; margin: auto;">
+            <h2 style="color: #c0392b; margin-bottom: 10px;">Arrange Your Photos 📸</h2>
+            <p style="margin-bottom: 20px;">Tap a photo below to fill an empty slot. Tap a slot to clear it, or drag to swap!</p>
+            
+            <div id="arrangementSlots" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; background: rgba(255,255,255,0.5); padding: 20px; border-radius: 8px; min-height: 120px; flex-wrap: wrap;">
+                <!-- Filled dynamically -->
+            </div>
+            
+            <div id="arrangementLibrary" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px; background: white; border-radius: 8px; min-height: 100px;">
+                <!-- Filled dynamically -->
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button onclick="backToTemplateSelection()" style="background: #f1c40f; color: #333; font-weight: bold;">Back</button>
+                <button id="generateArrangementBtn" onclick="generateFromArrangement()" style="background: #2ecc71; font-weight: bold;" disabled>Generate Strip</button>
+            </div>
+        </div>
+
+        <h1 id="generateTitle" style="display: none; color: #c0392b;">Generating Magic... ✨</h1>
                 <div id="generateLoader" class="loader" style="display:none;"></div>
                 <img id="finalStrip" class="final-result" style="display:none;">
                 <div id="finishControls" style="display:none; margin-top:20px;">
