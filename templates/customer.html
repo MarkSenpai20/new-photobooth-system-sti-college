@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Photobooth</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/customer.css">
+</head>
+<body>
+    
+    <!-- SLIDESHOW BACKGROUND -->
+    <div id="slideshow" class="slideshow-bg"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container">
+        
+        <!-- STATE 1: WELCOME SCREEN -->
+        <div id="screen-welcome" class="screen active">
+            <div class="panel">
+                <h1>Welcome! 🌸</h1>
+                <p>Enter your name or group name to start!</p>
+                <input type="text" id="customerName" placeholder="e.g. Mark's Group">
+                <button class="btn-green" onclick="startSession()">START</button>
+            </div>
+        </div>
+
+        <!-- STATE 2: CAMERA SCREEN -->
+        <div id="screen-camera" class="screen">
+            <div class="camera-wrapper">
+                <video id="videoElement" autoplay playsinline></video>
+                <div id="countdownOverlay" class="countdown" style="display:none;"></div>
+                
+                <div class="camera-controls">
+                    <button class="btn-pink" onclick="cancelSession()">Cancel</button>
+                    <button id="captureBtn" class="btn-yellow capture-btn" onclick="takePhoto()">📸</button>
+                    <button class="btn-green" onclick="finishCapture()">Done</button>
+                </div>
+            </div>
+            
+            <div class="library-panel">
+                <h3>Library</h3>
+                <div id="photoLibrary" class="gallery"></div>
+            </div>
+        </div>
+
+        <!-- STATE 3: REVIEW / GENERATE SCREEN -->
+        <div id="screen-review" class="screen">
+            <div class="panel">
+                <h1 id="generateTitle">Generating Magic... ✨</h1>
+                <div id="generateLoader" class="loader">Loading...</div>
+                <img id="finalStrip" class="final-result" style="display:none;">
+                <div id="finishControls" style="display:none; margin-top:20px;">
+                    <h3>All done! Your strip is ready.</h3>
+                    <button class="btn-green" onclick="completeSession()">Confirm and Finish</button>
+                    <button class="btn-yellow" onclick="backToCamera()">Cancel and do more</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Fullscreen Image Viewer Modal -->
+    <div id="photoModal" class="modal">
+        <div class="modal-content panel">
+            <img id="modalImg" style="max-width: 100%; border-radius:12px;">
+            <br><br>
+            <button class="btn-pink" id="modalDeleteBtn">Delete</button>
+            <button class="btn-green" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script src="/static/customer.js"></script>
+</body>
+</html>

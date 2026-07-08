@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photobooth Admin</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .card { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        button { padding: 10px 15px; background: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ Photobooth Admin Dashboard</h1>
+        
+        <div class="card">
+            <h2>1. Upload New Template</h2>
+            <input type="file" id="templateFile" accept="image/png">
+            <button onclick="uploadTemplate()">Upload Template</button>
+        </div>
+
+        <div class="card">
+            <h2>2. Active Settings</h2>
+            <label>Select Active Template:</label>
+            <select id="templateSelect"></select>
+            <br><br>
+            <label>Prints per page:</label>
+            <input type="number" id="copies" min="1" max="4" value="2">
+            <br><br>
+            <label>
+                <input type="checkbox" id="autoPrint"> Enable Auto-Print (Windows only)
+            </label>
+            <br><br>
+            <button onclick="saveSettings()">Save Settings</button>
+        </div>
+        
+        <div class="card">
+            <a href="/" target="_blank">Launch Customer Kiosk</a>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            const tempRes = await fetch('/api/templates');
+            const tempData = await tempRes.json();
+            const select = document.getElementById('templateSelect');
+            select.innerHTML = '<option value="">None (White Background)</option>';
+            tempData.templates.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t; opt.innerText = t;
+                select.appendChild(opt);
+            });
+
+            const setRes = await fetch('/api/settings');
+            const settings = await setRes.json();
+            if(settings.active_template) select.value = settings.active_template;
+            document.getElementById('autoPrint').checked = settings.auto_print || false;
+            document.getElementById('copies').value = settings.copies || 2;
+        }
+
+        async function uploadTemplate() {
+            const file = document.getElementById('templateFile').files[0];
+            if(!file) return alert("Select a file first.");
+            const formData = new FormData();
+            formData.append('template', file);
+            await fetch('/api/templates', {method: 'POST', body: formData});
+            alert("Uploaded!");
+            loadData();
+        }
+
+        async function saveSettings() {
+            const active_template = document.getElementById('templateSelect').value;
+            const auto_print = document.getElementById('autoPrint').checked;
+            const copies = parseInt(document.getElementById('copies').value);
+            await fetch('/api/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({active_template, auto_print, copies})
+            });
+            alert("Saved!");
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
