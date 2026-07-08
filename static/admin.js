@@ -160,6 +160,21 @@ function removeSlot(index) {
     renderEditor();
 }
 
+function duplicateSlot(index) {
+    const s = slots[index];
+    const newPoints = s.points.map(p => ({ x: p.x + 20, y: p.y + 20 }));
+    slots.push({
+        id: "Slot " + (slots.length + 1),
+        shape: s.shape,
+        points: newPoints
+    });
+    activeSlotIndex = slots.length - 1;
+    renderSlotPanel();
+    renderEditor();
+}
+
+window.duplicateSlot = duplicateSlot;
+
 function renderSlotPanel() {
     const panel = document.getElementById('slotPanel');
     panel.innerHTML = '<h3>Photo Slots</h3>';
@@ -182,7 +197,10 @@ function renderSlotPanel() {
                 <option value="circle" ${s.shape==='circle'?'selected':''}>Circle / Ellipse</option>
                 <option value="star" ${s.shape==='star'?'selected':''}>Star</option>
             </select>
-            <button onclick="removeSlot(${i})" style="width:100%; margin:0; margin-top:5px; background:#e74c3c;">Delete</button>
+            <div style="display: flex; gap: 5px; margin-top: 5px;">
+                <button onclick="duplicateSlot(${i})" style="flex: 1; margin: 0; background: #3498db;">Duplicate</button>
+                <button onclick="removeSlot(${i})" style="flex: 1; margin: 0; background: #e74c3c;">Delete</button>
+            </div>
         `;
         div.onclick = (e) => { 
             if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
