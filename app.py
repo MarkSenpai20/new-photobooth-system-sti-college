@@ -125,7 +125,8 @@ def generate(session_id):
     photos = sorted([os.path.join(session_dir, f) for f in os.listdir(session_dir) if f.endswith('.jpg')])
     if not photos: return jsonify({"error": "No photos"}), 400
     
-    template_name = settings.get('active_template')
+    data = request.json or {}
+    template_name = data.get('template', settings.get('active_template'))
     template_path = os.path.join(app.config['TEMPLATE_FOLDER'], template_name) if template_name else None
     
     timestamp = int(time.time())

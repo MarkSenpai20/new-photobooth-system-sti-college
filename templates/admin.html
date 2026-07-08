@@ -18,7 +18,7 @@
         .canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 20px; }
         canvas { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3hNUIKxgYWA4z4ADUDSiAEMwYNAhAANs4sMMQAYMhmOQjAAAcOch8b9N33cAAAAASUVORK5CYII=') repeat; cursor: crosshair; }
         
-        .slot-panel { background: #222; padding: 10px; color: white; width: 250px; overflow-y: auto;}
+        .slot-panel { background: #222; padding: 10px; color: white; width: 300px; overflow-y: auto;}
         .slot-item { background: #444; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
         .slot-item h4 { margin: 0 0 5px 0; }
         .slot-item select { width: 100%; margin-bottom: 5px; }
@@ -36,7 +36,7 @@
 
         <div class="card">
             <h2>2. Active Settings</h2>
-            <label>Select Active Template:</label>
+            <label>Select Default Active Template:</label>
             <select id="templateSelect"></select>
             <button onclick="openEditor()">✏️ Edit Layout</button>
             <br><br>
@@ -60,8 +60,9 @@
         <div class="editor-tools">
             <button onclick="closeEditor()" style="background:#e74c3c;">Close</button>
             <button onclick="saveLayout()" style="background:#2ecc71;">Save Config</button>
-            <button onclick="addSlot()">+ Add Photo Slot</button>
-            <span style="margin-left: 20px;">Drag corners to map perspective.</span>
+            <button id="drawModeBtn" onclick="toggleDrawMode()" style="background:#9b59b6;">Draw Polygon Mask</button>
+            <button onclick="addSlot()">+ Add 4-Point Slot</button>
+            <span style="margin-left: 20px;">Drag corners to map perspective. Drag center to move shape.</span>
         </div>
         <div style="display: flex; flex: 1; overflow: hidden;">
             <div class="canvas-container">

@@ -8,11 +8,19 @@ let canvas, ctx;
 let templateImg = null;
 let slots = [];
 let activeTemplateName = "";
+
 let draggedPoint = null;
+let draggedCenterSlotIndex = -1;
 let hoverPoint = null;
+let hoverCenterSlotIndex = -1;
 let activeSlotIndex = -1;
 
+// Drawing mode
+let isDrawingMode = false;
+let currentDrawingPoints = [];
+
 const POINT_RADIUS = 8;
+const CENTER_RADIUS = 10;
 
 async function loadData() {
     const tempRes = await fetch('/api/templates');
@@ -81,7 +89,6 @@ async function openEditor() {
         }
     } catch(e) { slots = []; }
 
-    // Load image
     templateImg = new Image();
     templateImg.onload = () => {
         canvas.width = templateImg.width;
@@ -96,6 +103,8 @@ async function openEditor() {
 function closeEditor() {
     document.getElementById('editorModal').classList.remove('active');
     editorActive = false;
+    isDrawingMode = false;
+    currentDrawingPoints = [];
 }
 
 function addSlot() {
@@ -106,8 +115,7 @@ function addSlot() {
     
     slots.push({
         id: "Slot " + (slots.length + 1),
-        shape: 'rect', // rect, circle, star
-        // TL, TR, BR, BL
+        shape: 'rect',
         points: [
             {x: cx - mw/2, y: cy - mh/2},
             {x: cx + mw/2, y: cy - mh/2},
@@ -117,6 +125,14 @@ function addSlot() {
     });
     activeSlotIndex = slots.length - 1;
     renderSlotPanel();
+    renderEditor();
+}
+
+function toggleDrawMode() {
+    isDrawingMode = !isDrawingMode;
+    currentDrawingPoints = [];
+    document.getElementById('drawModeBtn').style.background = isDrawingMode ? '#e67e22' : '#9b59b6';
+    document.getElementById('drawModeBtn').innerText = isDrawingMode ? 'Finish Polygon (Right Click)' : 'Draw Polygon Mask';
     renderEditor();
 }
 
@@ -132,7 +148,7 @@ function renderSlotPanel() {
     panel.innerHTML = '<h3>Photo Slots</h3>';
     
     if(slots.length === 0) {
-        panel.innerHTML += '<p>No slots. Click + Add Photo Slot.</p>';
+        panel.innerHTML += '<p>No slots. Click + Add Photo Slot or Draw Polygon Mask.</p>';
         return;
     }
     
@@ -144,8 +160,8 @@ function renderSlotPanel() {
         div.innerHTML = `
             <h4>${s.id}</h4>
             <label>Shape Mask:</label>
-            <select onchange="updateSlotShape(${i}, this.value)">
-                <option value="rect" ${s.shape==='rect'?'selected':''}>Rectangle (Default)</option>
+            <select onchange="window.updateSlotShape(${i}, this.value)">
+                <option value="rect" ${s.shape==='rect'?'selected':''}>Polygon/Rect</option>
                 <option value="circle" ${s.shape==='circle'?'selected':''}>Circle / Ellipse</option>
                 <option value="star" ${s.shape==='star'?'selected':''}>Star</option>
             </select>
@@ -171,13 +187,45 @@ async function saveLayout() {
     closeEditor();
 }
 
+function getCenter(points) {
+    let cx = 0, cy = 0;
+    points.forEach(p => { cx += p.x; cy += p.y; });
+    return {x: cx / points.length, y: cy / points.length};
+}
+
 // Canvas interactions
 function initCanvasEvents() {
+    canvas.oncontextmenu = (e) => {
+        e.preventDefault();
+        if(isDrawingMode && currentDrawingPoints.length > 2) {
+            slots.push({
+                id: "Slot " + (slots.length + 1),
+                shape: 'rect',
+                points: [...currentDrawingPoints]
+            });
+            activeSlotIndex = slots.length - 1;
+            toggleDrawMode();
+            renderSlotPanel();
+            renderEditor();
+        }
+    };
+
+    let dragStartX = 0;
+    let dragStartY = 0;
+
     canvas.onmousedown = e => {
+        if(e.button !== 0) return; // Left click only
         const {x, y} = getMousePos(e);
-        // Find if clicked on a point
+        
+        if(isDrawingMode) {
+            currentDrawingPoints.push({x, y});
+            renderEditor();
+            return;
+        }
+
+        // Check corner points
         for(let i=slots.length-1; i>=0; i--) {
-            for(let p=0; p<4; p++) {
+            for(let p=0; p<slots[i].points.length; p++) {
                 const pt = slots[i].points[p];
                 if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) {
                     draggedPoint = pt;
@@ -186,11 +234,25 @@ function initCanvasEvents() {
                     return;
                 }
             }
+            
+            // Check center handle
+            const c = getCenter(slots[i].points);
+            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) {
+                draggedCenterSlotIndex = i;
+                activeSlotIndex = i;
+                dragStartX = x;
+                dragStartY = y;
+                renderSlotPanel();
+                return;
+            }
         }
     };
     
     canvas.onmousemove = e => {
         const {x, y} = getMousePos(e);
+        
+        if(isDrawingMode) return;
+
         if(draggedPoint) {
             draggedPoint.x = x;
             draggedPoint.y = y;
@@ -198,21 +260,36 @@ function initCanvasEvents() {
             return;
         }
         
+        if(draggedCenterSlotIndex !== -1) {
+            const dx = x - dragStartX;
+            const dy = y - dragStartY;
+            slots[draggedCenterSlotIndex].points.forEach(p => {
+                p.x += dx;
+                p.y += dy;
+            });
+            dragStartX = x;
+            dragStartY = y;
+            renderEditor();
+            return;
+        }
+        
         // Hover state
         hoverPoint = null;
-        for(let s of slots) {
+        hoverCenterSlotIndex = -1;
+        for(let i=0; i<slots.length; i++) {
+            const s = slots[i];
             for(let pt of s.points) {
-                if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) {
-                    hoverPoint = pt;
-                }
+                if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) hoverPoint = pt;
             }
+            const c = getCenter(s.points);
+            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) hoverCenterSlotIndex = i;
         }
-        canvas.style.cursor = hoverPoint ? 'grab' : 'crosshair';
+        canvas.style.cursor = (hoverPoint || hoverCenterSlotIndex !== -1) ? 'grab' : 'crosshair';
         renderEditor();
     };
     
-    canvas.onmouseup = () => { draggedPoint = null; };
-    canvas.onmouseleave = () => { draggedPoint = null; hoverPoint = null; renderEditor(); };
+    canvas.onmouseup = () => { draggedPoint = null; draggedCenterSlotIndex = -1; };
+    canvas.onmouseleave = () => { draggedPoint = null; draggedCenterSlotIndex = -1; hoverPoint = null; hoverCenterSlotIndex = -1; renderEditor(); };
 }
 
 function getMousePos(evt) {
@@ -232,21 +309,18 @@ function dist(x1,y1,x2,y2) {
 function renderEditor() {
     ctx.clearRect(0,0, canvas.width, canvas.height);
     
-    // Draw template first (semi transparent so we can see slots behind/infront)
     ctx.globalAlpha = 0.5;
     ctx.drawImage(templateImg, 0, 0);
     ctx.globalAlpha = 1.0;
     
+    // Draw slots
     slots.forEach((s, i) => {
         const pts = s.points;
         const isActive = (i === activeSlotIndex);
         
-        // Draw polygon fill
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
-        ctx.lineTo(pts[1].x, pts[1].y);
-        ctx.lineTo(pts[2].x, pts[2].y);
-        ctx.lineTo(pts[3].x, pts[3].y);
+        for(let k=1; k<pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
         ctx.closePath();
         
         ctx.fillStyle = isActive ? 'rgba(46, 204, 113, 0.3)' : 'rgba(52, 152, 219, 0.3)';
@@ -255,26 +329,43 @@ function renderEditor() {
         ctx.lineWidth = 4;
         ctx.stroke();
         
-        // Draw points
         pts.forEach((pt, pi) => {
             ctx.beginPath();
             ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, 2*Math.PI);
             ctx.fillStyle = (pt === hoverPoint || pt === draggedPoint) ? '#e74c3c' : '#fff';
             ctx.fill();
             ctx.stroke();
-            
-            // Label corners 1-4 for clarity
-            ctx.fillStyle = '#000';
-            ctx.font = '12px Arial';
-            ctx.fillText(pi+1, pt.x - 4, pt.y + 4);
         });
         
-        // Number the slot
-        const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x)/4;
-        const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y)/4;
-        ctx.fillStyle = isActive ? '#2ecc71' : '#3498db';
-        ctx.font = 'bold 40px Arial';
+        // Draw Center handle
+        const c = getCenter(pts);
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, CENTER_RADIUS, 0, 2*Math.PI);
+        ctx.fillStyle = (i === hoverCenterSlotIndex || i === draggedCenterSlotIndex) ? '#e67e22' : '#f1c40f';
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(i+1, cx, cy);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(i+1, c.x, c.y);
     });
+
+    // Draw active polygon mode
+    if(isDrawingMode && currentDrawingPoints.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(currentDrawingPoints[0].x, currentDrawingPoints[0].y);
+        for(let k=1; k<currentDrawingPoints.length; k++) ctx.lineTo(currentDrawingPoints[k].x, currentDrawingPoints[k].y);
+        ctx.strokeStyle = '#9b59b6';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        currentDrawingPoints.forEach(pt => {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, 2*Math.PI);
+            ctx.fillStyle = '#9b59b6';
+            ctx.fill();
+        });
+    }
 }

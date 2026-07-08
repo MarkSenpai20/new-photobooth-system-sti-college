@@ -47,8 +47,13 @@
         <!-- STATE 3: REVIEW / GENERATE SCREEN -->
         <div id="screen-review" class="screen">
             <div class="panel">
-                <h1 id="generateTitle">Generating Magic... ✨</h1>
-                <div id="generateLoader" class="loader">Loading...</div>
+                <div id="templateSelectionArea">
+                    <h1>Choose your Template 🎨</h1>
+                    <div id="templateGrid" style="display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-bottom:20px; max-height:300px; overflow-y:auto;"></div>
+                </div>
+                
+                <h1 id="generateTitle" style="display:none;">Generating Magic... ✨</h1>
+                <div id="generateLoader" class="loader" style="display:none;"></div>
                 <img id="finalStrip" class="final-result" style="display:none;">
                 <div id="finishControls" style="display:none; margin-top:20px;">
                     <h3>All done! Your strip is ready.</h3>

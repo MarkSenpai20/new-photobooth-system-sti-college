@@ -4,7 +4,56 @@ let currentPhoto = null;
 let slideshowImages = [];
 let slideIdx = 0;
 
-// Slideshow logic for Welcome Screen
+// SFX Engine
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playClick() {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function playShutter() {
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const bufferSize = audioCtx.sampleRate * 0.1;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.value = 1000;
+    const noiseGain = audioCtx.createGain();
+    noiseGain.gain.setValueAtTime(1, audioCtx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+    noise.start();
+    
+    const osc = audioCtx.createOscillator();
+    const oscGain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.05);
+    oscGain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+    osc.connect(oscGain);
+    oscGain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+}
+
+// Slideshow logic
 async function loadSlideshow() {
     try {
         const res = await fetch('/api/slideshow');
@@ -32,6 +81,7 @@ function switchScreen(screenId) {
 }
 
 async function startSession() {
+    playClick();
     const name = document.getElementById('customerName').value;
     if(!name) return alert("Please enter a name!");
     
@@ -43,7 +93,7 @@ async function startSession() {
     const data = await res.json();
     if(data.success) {
         sessionId = data.session_id;
-        document.getElementById('slideshow').style.display = 'none'; // hide bg
+        document.getElementById('slideshow').style.display = 'none';
         switchScreen('screen-camera');
         startCamera();
         loadLibrary();
@@ -67,6 +117,7 @@ function stopCamera() {
 }
 
 function cancelSession() {
+    playClick();
     stopCamera();
     sessionId = null;
     document.getElementById('customerName').value = '';
@@ -78,14 +129,17 @@ async function takePhoto() {
     const btn = document.getElementById('captureBtn');
     const overlay = document.getElementById('countdownOverlay');
     btn.disabled = true;
+    playClick();
     
     // Countdown
     overlay.style.display = 'block';
     for(let i=3; i>0; i--) {
         overlay.innerText = i;
+        playClick();
         await new Promise(r => setTimeout(r, 1000));
     }
     overlay.innerText = "📸";
+    playShutter();
     
     // Capture
     const video = document.getElementById('videoElement');
@@ -96,7 +150,6 @@ async function takePhoto() {
     
     overlay.style.display = 'none';
     
-    // Upload
     canvas.toBlob(async (blob) => {
         const formData = new FormData();
         formData.append('photo', blob, 'capture.jpg');
@@ -115,7 +168,7 @@ async function loadLibrary() {
     data.photos.forEach(p => {
         const img = document.createElement('img');
         img.src = `/api/session/${sessionId}/photos/${p}?t=${Date.now()}`;
-        img.onclick = () => openModal(p, img.src);
+        img.onclick = () => { playClick(); openModal(p, img.src); };
         lib.appendChild(img);
     });
 }
@@ -127,11 +180,13 @@ function openModal(filename, src) {
 }
 
 function closeModal() {
+    playClick();
     document.getElementById('photoModal').classList.remove('active');
     currentPhoto = null;
 }
 
 document.getElementById('modalDeleteBtn').onclick = async () => {
+    playClick();
     if(!currentPhoto) return;
     await fetch(`/api/session/${sessionId}/photos/${currentPhoto}`, { method: 'DELETE' });
     closeModal();
@@ -139,14 +194,43 @@ document.getElementById('modalDeleteBtn').onclick = async () => {
 };
 
 async function finishCapture() {
+    playClick();
     stopCamera();
     switchScreen('screen-review');
-    document.getElementById('generateLoader').style.display = 'block';
+    
+    document.getElementById('templateSelectionArea').style.display = 'block';
+    document.getElementById('generateTitle').style.display = 'none';
+    document.getElementById('generateLoader').style.display = 'none';
     document.getElementById('finalStrip').style.display = 'none';
     document.getElementById('finishControls').style.display = 'none';
-    document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
     
-    const res = await fetch(`/api/session/${sessionId}/generate`, { method: 'POST' });
+    const res = await fetch('/api/templates');
+    const data = await res.json();
+    const grid = document.getElementById('templateGrid');
+    grid.innerHTML = '';
+    data.templates.forEach(t => {
+        const img = document.createElement('img');
+        img.src = `/api/templates/${t}`;
+        img.style.width = '120px';
+        img.style.border = '4px solid var(--border-pink)';
+        img.style.borderRadius = '8px';
+        img.style.cursor = 'pointer';
+        img.onclick = () => { playClick(); generateStrip(t); };
+        grid.appendChild(img);
+    });
+}
+
+async function generateStrip(templateName) {
+    document.getElementById('templateSelectionArea').style.display = 'none';
+    document.getElementById('generateTitle').style.display = 'block';
+    document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
+    document.getElementById('generateLoader').style.display = 'block';
+    
+    const res = await fetch(`/api/session/${sessionId}/generate`, { 
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({template: templateName})
+    });
     const data = await res.json();
     
     if(data.success) {
@@ -162,14 +246,16 @@ async function finishCapture() {
 }
 
 function backToCamera() {
+    playClick();
     switchScreen('screen-camera');
     startCamera();
 }
 
 function completeSession() {
+    playClick();
     sessionId = null;
     document.getElementById('customerName').value = '';
     document.getElementById('slideshow').style.display = 'block';
-    loadSlideshow(); // refresh slideshow to include new strip
+    loadSlideshow();
     switchScreen('screen-welcome');
 }

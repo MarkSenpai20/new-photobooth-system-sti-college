@@ -90,26 +90,21 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
                 
             img = img.resize((tw, th), Image.Resampling.LANCZOS)
             
-            # Apply perspective warp
-            # source_canvas_quad = coords of the image placed at 0,0
-            source_canvas_quad = [(0,0), (img.width,0), (img.width,img.height), (0,img.height)]
+            shape = slot.get('shape', 'rect')
+            if len(target_quad) == 4 and shape == 'rect':
+                source_canvas_quad = [(0,0), (img.width,0), (img.width,img.height), (0,img.height)]
+                coeffs = find_coeffs(source_canvas_quad, target_quad)
+                warped = img.transform((strip_width, strip_height), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
+            else:
+                warped = Image.new('RGBA', (strip_width, strip_height), (0,0,0,0))
+                warped.paste(img, (int(min_x), int(min_y)))
             
-            # PIL perspective transform: maps destination canvas to source image
-            coeffs = find_coeffs(source_canvas_quad, target_quad)
-            
-            # Transform image to full canvas size
-            warped = img.transform((strip_width, strip_height), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
-            
-            # Create mask layer
             mask = Image.new('L', (strip_width, strip_height), 0)
             mask_draw = ImageDraw.Draw(mask)
             
-            shape = slot.get('shape', 'rect')
             if shape == 'circle':
-                # Draw ellipse in bounding box
                 mask_draw.ellipse([min_x, min_y, max_x, max_y], fill=255)
             elif shape == 'star':
-                # Draw a star
                 cx, cy = (min_x + max_x) / 2, (min_y + max_y) / 2
                 r_out = min(tw, th) / 2
                 r_in = r_out * 0.4
@@ -120,10 +115,8 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
                     star_pts.append((cx + r * math.cos(angle), cy - r * math.sin(angle)))
                 mask_draw.polygon(star_pts, fill=255)
             else:
-                # Default rect/polygon
                 mask_draw.polygon(target_quad, fill=255)
                 
-            # Apply mask to warped image
             warped.putalpha(mask)
             canvas = Image.alpha_composite(canvas, warped)
 
