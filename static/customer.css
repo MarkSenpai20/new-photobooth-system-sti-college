@@ -26,10 +26,23 @@ body {
 h1, h2, h3 { font-family: 'Fredoka One', cursive; margin: 0 0 15px 0; }
 
 .slideshow-bg {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: 0; opacity: 0.2;
-    background-size: cover; background-position: center;
-    transition: background-image 1s ease-in-out;
+    position: fixed; top: -10px; left: -10px; width: calc(100vw + 20px); height: calc(100vh + 20px);
+    z-index: 0; opacity: 0.4;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-auto-rows: minmax(250px, 1fr);
+    gap: 10px;
+    padding: 10px;
+    overflow: hidden;
+    filter: blur(2px);
+}
+
+.slideshow-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+    transition: opacity 0.5s ease-in-out;
 }
 
 .app-container {

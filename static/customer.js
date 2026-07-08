@@ -53,6 +53,9 @@ function playShutter() {
     osc.stop(audioCtx.currentTime + 0.05);
 }
 
+let gridCells = [];
+let slideshowInterval = null;
+
 // Slideshow logic
 async function loadSlideshow() {
     try {
@@ -60,17 +63,47 @@ async function loadSlideshow() {
         const data = await res.json();
         slideshowImages = data.images;
         if(slideshowImages.length > 0) {
-            changeSlide();
-            setInterval(changeSlide, 4000);
+            initGridSlideshow();
         }
     } catch (e) { console.error(e); }
 }
 
-function changeSlide() {
-    if(slideshowImages.length === 0) return;
+function initGridSlideshow() {
     const bg = document.getElementById('slideshow');
-    bg.style.backgroundImage = `url(${slideshowImages[slideIdx]})`;
-    slideIdx = (slideIdx + 1) % slideshowImages.length;
+    bg.innerHTML = ''; // Clear existing
+    bg.style.backgroundImage = 'none'; // Remove old logic
+    
+    // Create roughly enough cells to fill a 1920x1080 screen (e.g. 8x5 = 40)
+    const numCells = 40; 
+    gridCells = [];
+    
+    for(let i=0; i<numCells; i++) {
+        const img = document.createElement('img');
+        img.src = slideshowImages[Math.floor(Math.random() * slideshowImages.length)];
+        bg.appendChild(img);
+        gridCells.push(img);
+    }
+    
+    if (slideshowInterval) clearInterval(slideshowInterval);
+    
+    slideshowInterval = setInterval(() => {
+        if(slideshowImages.length === 0 || gridCells.length === 0) return;
+        
+        // Pick 2 random cells to change at a time to make it feel alive
+        for(let i=0; i<2; i++) {
+            const randomCellIndex = Math.floor(Math.random() * gridCells.length);
+            const randomImage = slideshowImages[Math.floor(Math.random() * slideshowImages.length)];
+            const cell = gridCells[randomCellIndex];
+            
+            // Fade out
+            cell.style.opacity = 0;
+            setTimeout(() => {
+                cell.src = randomImage;
+                // Fade in
+                cell.style.opacity = 1;
+            }, 500); 
+        }
+    }, 2000);
 }
 
 window.onload = loadSlideshow;
