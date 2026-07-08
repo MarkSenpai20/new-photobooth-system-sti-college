@@ -65,6 +65,19 @@ def api_templates():
 def get_template(filename):
     return send_from_directory(app.config['TEMPLATE_FOLDER'], filename)
 
+@app.route('/api/templates/<filename>/config', methods=['GET', 'POST'])
+def template_config(filename):
+    config_path = os.path.join(app.config['TEMPLATE_FOLDER'], f"{filename}.json")
+    if request.method == 'POST':
+        with open(config_path, 'w') as f:
+            json.dump(request.json, f)
+        return jsonify({"success": True})
+    
+    if os.path.exists(config_path):
+        with open(config_path, 'r') as f:
+            return jsonify(json.load(f))
+    return jsonify({"slots": []})
+
 @app.route('/api/session/start', methods=['POST'])
 def start_session():
     data = request.json

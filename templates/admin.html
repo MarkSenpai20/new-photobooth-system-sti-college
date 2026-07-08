@@ -8,8 +8,20 @@
         body { font-family: sans-serif; background: #f0f0f0; padding: 20px; }
         .container { max-width: 600px; margin: auto; }
         .card { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        button { padding: 10px 15px; background: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button { padding: 10px 15px; background: #3498db; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
         button:hover { background: #2980b9; }
+        
+        /* Editor Modal */
+        #editorModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; }
+        #editorModal.active { display: flex; }
+        .editor-tools { background: #333; padding: 10px; color: white; display: flex; gap: 10px; align-items: center; }
+        .canvas-container { flex: 1; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 20px; }
+        canvas { background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAMUlEQVQ4T2NkYGAQYcAP3hNUIKxgYWA4z4ADUDSiAEMwYNAhAANs4sMMQAYMhmOQjAAAcOch8b9N33cAAAAASUVORK5CYII=') repeat; cursor: crosshair; }
+        
+        .slot-panel { background: #222; padding: 10px; color: white; width: 250px; overflow-y: auto;}
+        .slot-item { background: #444; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
+        .slot-item h4 { margin: 0 0 5px 0; }
+        .slot-item select { width: 100%; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -26,6 +38,7 @@
             <h2>2. Active Settings</h2>
             <label>Select Active Template:</label>
             <select id="templateSelect"></select>
+            <button onclick="openEditor()">✏️ Edit Layout</button>
             <br><br>
             <label>Prints per page:</label>
             <input type="number" id="copies" min="1" max="4" value="2">
@@ -42,48 +55,24 @@
         </div>
     </div>
 
-    <script>
-        async function loadData() {
-            const tempRes = await fetch('/api/templates');
-            const tempData = await tempRes.json();
-            const select = document.getElementById('templateSelect');
-            select.innerHTML = '<option value="">None (White Background)</option>';
-            tempData.templates.forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t; opt.innerText = t;
-                select.appendChild(opt);
-            });
+    <!-- Editor Modal -->
+    <div id="editorModal">
+        <div class="editor-tools">
+            <button onclick="closeEditor()" style="background:#e74c3c;">Close</button>
+            <button onclick="saveLayout()" style="background:#2ecc71;">Save Config</button>
+            <button onclick="addSlot()">+ Add Photo Slot</button>
+            <span style="margin-left: 20px;">Drag corners to map perspective.</span>
+        </div>
+        <div style="display: flex; flex: 1; overflow: hidden;">
+            <div class="canvas-container">
+                <canvas id="editorCanvas"></canvas>
+            </div>
+            <div class="slot-panel" id="slotPanel">
+                <!-- Slots render here -->
+            </div>
+        </div>
+    </div>
 
-            const setRes = await fetch('/api/settings');
-            const settings = await setRes.json();
-            if(settings.active_template) select.value = settings.active_template;
-            document.getElementById('autoPrint').checked = settings.auto_print || false;
-            document.getElementById('copies').value = settings.copies || 2;
-        }
-
-        async function uploadTemplate() {
-            const file = document.getElementById('templateFile').files[0];
-            if(!file) return alert("Select a file first.");
-            const formData = new FormData();
-            formData.append('template', file);
-            await fetch('/api/templates', {method: 'POST', body: formData});
-            alert("Uploaded!");
-            loadData();
-        }
-
-        async function saveSettings() {
-            const active_template = document.getElementById('templateSelect').value;
-            const auto_print = document.getElementById('autoPrint').checked;
-            const copies = parseInt(document.getElementById('copies').value);
-            await fetch('/api/settings', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({active_template, auto_print, copies})
-            });
-            alert("Saved!");
-        }
-
-        window.onload = loadData;
-    </script>
+    <script src="/static/admin.js"></script>
 </body>
 </html>
