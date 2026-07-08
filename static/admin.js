@@ -316,9 +316,18 @@ function initCanvasEvents() {
             const dx = x - dragStartMidX;
             const dy = y - dragStartMidY;
             const pts = slots[draggedMidpointSlot].points;
-            const j = draggedMidpointEdge;
-            pts[j].x += dx; pts[j].y += dy;
-            pts[(j+1)%4].x += dx; pts[(j+1)%4].y += dy;
+            const j = draggedMidpointEdge; // 0=Top, 1=Right, 2=Bottom, 3=Left
+            
+            if (j === 0) { // Top edge -> change Y of TL (0) and TR (1)
+                pts[0].y += dy; pts[1].y += dy;
+            } else if (j === 1) { // Right edge -> change X of TR (1) and BR (2)
+                pts[1].x += dx; pts[2].x += dx;
+            } else if (j === 2) { // Bottom edge -> change Y of BR (2) and BL (3)
+                pts[2].y += dy; pts[3].y += dy;
+            } else if (j === 3) { // Left edge -> change X of BL (3) and TL (0)
+                pts[3].x += dx; pts[0].x += dx;
+            }
+            
             dragStartMidX = x;
             dragStartMidY = y;
             renderEditor();
