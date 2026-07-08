@@ -151,11 +151,9 @@ function stopCamera() {
 
 function cancelSession() {
     playClick();
-    stopCamera();
-    sessionId = null;
-    document.getElementById('customerName').value = '';
-    document.getElementById('slideshow').style.display = 'block';
-    switchScreen('screen-welcome');
+    setTimeout(() => {
+        window.location.reload();
+    }, 100);
 }
 
 async function takePhoto() {
