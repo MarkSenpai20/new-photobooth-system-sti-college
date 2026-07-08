@@ -129,10 +129,27 @@ function addSlot() {
 }
 
 function toggleDrawMode() {
-    isDrawingMode = !isDrawingMode;
-    currentDrawingPoints = [];
+    if (isDrawingMode) {
+        if (currentDrawingPoints.length > 2) {
+            slots.push({
+                id: "Slot " + (slots.length + 1),
+                shape: 'rect',
+                points: [...currentDrawingPoints]
+            });
+            activeSlotIndex = slots.length - 1;
+            renderSlotPanel();
+        }
+        isDrawingMode = false;
+        currentDrawingPoints = [];
+    } else {
+        isDrawingMode = true;
+        currentDrawingPoints = [];
+        activeSlotIndex = -1;
+        renderSlotPanel();
+    }
+    
     document.getElementById('drawModeBtn').style.background = isDrawingMode ? '#e67e22' : '#9b59b6';
-    document.getElementById('drawModeBtn').innerText = isDrawingMode ? 'Finish Polygon (Right Click)' : 'Draw Polygon Mask';
+    document.getElementById('drawModeBtn').innerText = isDrawingMode ? 'Finish Polygon' : 'Draw Polygon Mask';
     renderEditor();
 }
 
@@ -167,7 +184,13 @@ function renderSlotPanel() {
             </select>
             <button onclick="removeSlot(${i})" style="width:100%; margin:0; margin-top:5px; background:#e74c3c;">Delete</button>
         `;
-        div.onmousedown = () => { activeSlotIndex = i; renderSlotPanel(); renderEditor(); };
+        div.onclick = (e) => { 
+            if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'SELECT') {
+                activeSlotIndex = i; 
+                renderSlotPanel(); 
+                renderEditor(); 
+            }
+        };
         panel.appendChild(div);
     });
 }
@@ -197,16 +220,8 @@ function getCenter(points) {
 function initCanvasEvents() {
     canvas.oncontextmenu = (e) => {
         e.preventDefault();
-        if(isDrawingMode && currentDrawingPoints.length > 2) {
-            slots.push({
-                id: "Slot " + (slots.length + 1),
-                shape: 'rect',
-                points: [...currentDrawingPoints]
-            });
-            activeSlotIndex = slots.length - 1;
+        if(isDrawingMode) {
             toggleDrawMode();
-            renderSlotPanel();
-            renderEditor();
         }
     };
 
@@ -223,7 +238,7 @@ function initCanvasEvents() {
             return;
         }
 
-        // Check corner points
+        // Check corner points first
         for(let i=slots.length-1; i>=0; i--) {
             for(let p=0; p<slots[i].points.length; p++) {
                 const pt = slots[i].points[p];
@@ -234,8 +249,10 @@ function initCanvasEvents() {
                     return;
                 }
             }
+        }
             
-            // Check center handle
+        // Check center handles
+        for(let i=slots.length-1; i>=0; i--) {
             const c = getCenter(slots[i].points);
             if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) {
                 draggedCenterSlotIndex = i;
@@ -278,11 +295,16 @@ function initCanvasEvents() {
         hoverCenterSlotIndex = -1;
         for(let i=0; i<slots.length; i++) {
             const s = slots[i];
-            for(let pt of s.points) {
-                if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) hoverPoint = pt;
-            }
             const c = getCenter(s.points);
-            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) hoverCenterSlotIndex = i;
+            if(dist(x, y, c.x, c.y) < CENTER_RADIUS * 2) {
+                hoverCenterSlotIndex = i;
+            }
+            for(let pt of s.points) {
+                if(dist(x, y, pt.x, pt.y) < POINT_RADIUS * 2) {
+                    hoverPoint = pt;
+                    hoverCenterSlotIndex = -1; // prioritize point over center
+                }
+            }
         }
         canvas.style.cursor = (hoverPoint || hoverCenterSlotIndex !== -1) ? 'grab' : 'crosshair';
         renderEditor();
