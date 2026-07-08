@@ -400,9 +400,7 @@ function backToCamera() {
 
 function completeSession() {
     playClick();
-    sessionId = null;
-    document.getElementById('customerName').value = '';
-    document.getElementById('slideshow').style.display = 'block';
-    loadSlideshow();
-    switchScreen('screen-welcome');
+    setTimeout(() => {
+        window.location.reload();
+    }, 100); // Give the click sound a tiny moment to play before reload
 }
