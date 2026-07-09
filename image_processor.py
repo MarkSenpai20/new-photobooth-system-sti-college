@@ -2,7 +2,7 @@ import os
 import json
 import math
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 def find_coeffs(source_coords, target_coords):
     matrix = []
@@ -22,8 +22,8 @@ def get_template_config(template_path):
             return json.load(f)
     return None
 
-def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None, bg_color="#ffffff", stickers_data=None):
-    if stickers_data is None: stickers_data = []
+def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None, bg_color="#ffffff", shape='rectangle', overlays_data=None):
+    if overlays_data is None: overlays_data = []
     
     if template_path and os.path.exists(template_path):
         template = Image.open(template_path).convert("RGBA")
@@ -101,8 +101,11 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
                 
             img = img.resize((tw, th), Image.Resampling.LANCZOS)
             
-            shape = slot.get('shape', 'rect')
-            if len(target_quad) == 4 and shape == 'rect':
+            # Determine which shape to use
+            # If it's a plain template, use the user's selected shape. Otherwise, stick to the template's defined shape.
+            use_shape = shape if (template_path and 'plain_' in os.path.basename(template_path)) else slot.get('shape', 'rectangle')
+            
+            if len(target_quad) == 4 and use_shape == 'rectangle':
                 source_canvas_quad = [(0,0), (img.width,0), (img.width,img.height), (0,img.height)]
                 coeffs = find_coeffs(source_canvas_quad, target_quad)
                 warped = img.transform((strip_width, strip_height), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
@@ -113,9 +116,12 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
             mask = Image.new('L', (strip_width, strip_height), 0)
             mask_draw = ImageDraw.Draw(mask)
             
-            if shape == 'circle':
+            if use_shape == 'circle':
                 mask_draw.ellipse([min_x, min_y, max_x, max_y], fill=255)
-            elif shape == 'star':
+            elif use_shape == 'rounded':
+                radius = 30
+                mask_draw.rounded_rectangle([min_x, min_y, max_x, max_y], radius=radius, fill=255)
+            elif use_shape == 'star':
                 cx, cy = (min_x + max_x) / 2, (min_y + max_y) / 2
                 r_out = min(tw, th) / 2
                 r_in = r_out * 0.4
@@ -134,40 +140,72 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
     if template:
         canvas = Image.alpha_composite(canvas, template)
         
-    if stickers_data:
-        for s in stickers_data:
+    if overlays_data:
+        for o in overlays_data:
             try:
-                if 'path' not in s or not os.path.exists(s['path']):
-                    continue
-                sticker_img = Image.open(s['path']).convert("RGBA")
-                
-                # We expect the frontend to send coordinates relative to the final strip size
-                # or a scale multiplier. Let's assume the frontend sends x, y, width, height, rotation
-                # mapped to the actual strip_width / strip_height.
-                sw = int(float(s['width']))
-                sh = int(float(s['height']))
-                if sw <= 0 or sh <= 0: continue
-                
-                sticker_img = sticker_img.resize((sw, sh), Image.Resampling.LANCZOS)
-                
-                rot = float(s.get('rotation', 0))
-                if rot != 0:
-                    sticker_img = sticker_img.rotate(-rot, expand=True, resample=Image.Resampling.BICUBIC)
-                
-                # x, y is center from frontend usually, or maybe top-left?
-                # If frontend sends top-left before rotation, we need to map to center, rotate, then paste.
-                # Let's say frontend sends 'cx', 'cy' (center coords).
-                cx = float(s['cx'])
-                cy = float(s['cy'])
-                
-                offset_x = int(cx - sticker_img.width / 2)
-                offset_y = int(cy - sticker_img.height / 2)
-                
                 temp_layer = Image.new('RGBA', canvas.size, (0,0,0,0))
-                temp_layer.paste(sticker_img, (offset_x, offset_y))
+                
+                cx = float(o['cx'])
+                cy = float(o['cy'])
+                
+                if o['type'] == 'sticker':
+                    if 'path' not in o or not os.path.exists(o['path']):
+                        continue
+                    element_img = Image.open(o['path']).convert("RGBA")
+                    sw = int(float(o['width']))
+                    sh = int(float(o['height']))
+                    if sw <= 0 or sh <= 0: continue
+                    element_img = element_img.resize((sw, sh), Image.Resampling.LANCZOS)
+                
+                elif o['type'] == 'text':
+                    # For text, we dynamically render it to an image first
+                    text = o['content']
+                    color_hex = o.get('color', '#000000')
+                    font_name = o.get('font', 'Nunito')
+                    
+                    # Try to map font name to a common system font or use default
+                    # In a real system, you'd have a directory of .ttf files. We'll use default for safety if not found.
+                    try:
+                        # You can place .ttf files in assets/fonts to support custom ones perfectly.
+                        # For now, Pillow's default or Arial
+                        font_path = f"assets/fonts/{font_name}.ttf"
+                        if os.path.exists(font_path):
+                            font = ImageFont.truetype(font_path, 80)
+                        else:
+                            font = ImageFont.truetype("arial.ttf", 80)
+                    except:
+                        font = ImageFont.load_default()
+
+                    # Measure text
+                    # getbbox returns (left, top, right, bottom)
+                    try:
+                        bbox = font.getbbox(text)
+                        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    except AttributeError:
+                        tw, th = font.getsize(text)
+                    
+                    element_img = Image.new('RGBA', (tw + 20, th + 20), (0,0,0,0))
+                    d = ImageDraw.Draw(element_img)
+                    d.text((10, 10), text, font=font, fill=color_hex)
+                    
+                    # Scale to match frontend width approximately
+                    sw = int(float(o['width']))
+                    # maintain aspect ratio for text
+                    sh = int(element_img.height * (sw / element_img.width)) if element_img.width > 0 else 0
+                    if sw > 0 and sh > 0:
+                        element_img = element_img.resize((sw, sh), Image.Resampling.LANCZOS)
+
+                rot = float(o.get('rotation', 0))
+                if rot != 0:
+                    element_img = element_img.rotate(-rot, expand=True, resample=Image.Resampling.BICUBIC)
+                
+                offset_x = int(cx - element_img.width / 2)
+                offset_y = int(cy - element_img.height / 2)
+                
+                temp_layer.paste(element_img, (offset_x, offset_y))
                 canvas = Image.alpha_composite(canvas, temp_layer)
             except Exception as e:
-                print(f"Sticker error: {e}")
+                print(f"Overlay error: {e}")
                 
     canvas.convert("RGB").save(output_path, "JPEG", quality=95)
     return output_path

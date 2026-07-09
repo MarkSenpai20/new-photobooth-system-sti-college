@@ -158,8 +158,10 @@ def generate_preview(session_id):
     preview_filename = f"preview_{session_id}.jpg"
     preview_path = os.path.join(session_dir, preview_filename)
     
+    shape = data.get('shape', 'rectangle')
+    
     # Generate the base image without custom background or stickers
-    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color="#ffffff", stickers_data=[])
+    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color="#ffffff", shape=shape, overlays_data=[])
     
     return jsonify({"success": True, "preview_url": f"/api/session/{session_id}/photos/{preview_filename}"})
 
@@ -179,17 +181,19 @@ def generate(session_id):
     if not photos: return jsonify({"error": "No photos selected"}), 400
     
     bg_color = data.get('bg_color', '#ffffff')
-    stickers_data = data.get('stickers', [])
+    shape = data.get('shape', 'rectangle')
+    overlays_data = data.get('overlays', [])
     
     # resolve sticker paths
-    for s in stickers_data:
-        s['path'] = os.path.join(app.config['STICKER_FOLDER'], s['src'])
+    for o in overlays_data:
+        if o['type'] == 'sticker':
+            o['path'] = os.path.join(app.config['STICKER_FOLDER'], o['content'])
     
     timestamp = int(time.time())
     strip_filename = f"{session_id}_strip_{timestamp}.jpg"
     strip_path = os.path.join(app.config['OUTPUT_FOLDER'], strip_filename)
     
-    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, stickers_data=stickers_data)
+    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, shape=shape, overlays_data=overlays_data)
     
     pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)

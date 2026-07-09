@@ -113,6 +113,12 @@ function switchScreen(screenId) {
     document.getElementById(screenId).classList.add('active');
 }
 
+// Design State
+let currentBgColor = '#ffffff';
+let currentShape = 'rectangle';
+let overlays = []; // { id, type: 'sticker'|'text', content, x, y, width, height, color, font }
+let overlayCounter = 0;
+
 async function startSession() {
     playClick();
     const name = document.getElementById('customerName').value;
@@ -379,32 +385,43 @@ function backToTemplateSelection() {
     document.getElementById('templateSelectionArea').style.display = 'block';
 }
 
-let currentBgColor = '#ffffff';
-
 function setBgColor(hex) {
     currentBgColor = hex;
     document.getElementById('designCanvasWrapper').style.backgroundColor = hex;
 }
 
+async function setPhotoShape(shape) {
+    playClick();
+    currentShape = shape;
+    // Re-generate preview with new shape
+    await generatePreview();
+}
+
 function backToArrangementFromDesign() {
     playClick();
-    document.getElementById('designArea').style.display = 'none';
+    switchScreen('screen-review');
     document.getElementById('arrangementArea').style.display = 'block';
 }
 
-async function goToDesign() {
+function switchDesignTab(tabId) {
     playClick();
-    document.getElementById('arrangementArea').style.display = 'none';
+    document.querySelectorAll('.design-tab').forEach(t => t.style.display = 'none');
+    document.getElementById(tabId).style.display = 'block';
+}
+
+async function generatePreview() {
     document.getElementById('generateTitle').style.display = 'block';
     document.getElementById('generateTitle').innerText = "Loading Canvas... 🎨";
     document.getElementById('generateLoader').style.display = 'block';
+    switchScreen('screen-result');
 
     const res = await fetch(`/api/session/${sessionId}/generate_preview`, { 
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             template: selectedTemplateName,
-            selected_photos: arrangementSlots
+            selected_photos: arrangementSlots,
+            shape: currentShape
         })
     });
     const data = await res.json();
@@ -414,17 +431,37 @@ async function goToDesign() {
         document.getElementById('generateTitle').style.display = 'none';
         
         document.getElementById('designPreviewImg').src = data.preview_url + "?t=" + Date.now();
-        document.getElementById('designArea').style.display = 'block';
-        
-        // reset design
-        document.getElementById('stickerLayer').innerHTML = '';
-        setBgColor('#ffffff');
-        
-        loadStickers();
+        switchScreen('screen-design');
     } else {
         alert("Error: " + data.error);
         backToCamera();
     }
+}
+
+async function goToDesign() {
+    playClick();
+    document.getElementById('arrangementArea').style.display = 'none';
+    
+    // Check if Premade or Plain
+    const isPlain = selectedTemplateName.startsWith('plain_');
+    if (isPlain) {
+        document.getElementById('bgToolsContainer').style.display = 'block';
+        document.getElementById('premadeNotice').style.display = 'none';
+    } else {
+        document.getElementById('bgToolsContainer').style.display = 'none';
+        document.getElementById('premadeNotice').style.display = 'block';
+    }
+
+    // reset design state
+    overlays = [];
+    document.getElementById('stickerLayer').innerHTML = '';
+    setBgColor('#ffffff');
+    currentShape = 'rectangle';
+    renderLayersList();
+    switchDesignTab('tab-bg');
+    
+    await generatePreview();
+    loadStickers();
 }
 
 async function loadStickers() {
@@ -448,7 +485,9 @@ function addStickerToCanvas(stickerFilename) {
     const img = document.createElement('img');
     img.src = `/api/stickers/${stickerFilename}`;
     img.className = 'canvas-sticker';
-    img.dataset.filename = stickerFilename;
+    
+    const id = 'overlay_' + overlayCounter++;
+    img.id = id;
     
     // Default size and center position
     img.style.width = '100px';
@@ -456,34 +495,173 @@ function addStickerToCanvas(stickerFilename) {
     img.style.top = '50%';
     img.style.transform = 'translate(-50%, -50%)';
     
-    // Make interactive
+    overlays.push({ id, type: 'sticker', content: stickerFilename, element: img });
+    renderLayersList();
+    makeDraggable(img);
+    
+    layer.appendChild(img);
+}
+
+function addTextToCanvas() {
+    playClick();
+    const text = document.getElementById('textOverlayInput').value.trim();
+    if (!text) return;
+    const color = document.getElementById('textOverlayColor').value;
+    const font = document.getElementById('textOverlayFont').value;
+    
+    const layer = document.getElementById('stickerLayer');
+    const div = document.createElement('div');
+    div.className = 'canvas-sticker';
+    
+    const id = 'overlay_' + overlayCounter++;
+    div.id = id;
+    
+    div.innerText = text;
+    div.style.color = color;
+    div.style.fontFamily = `"${font}", sans-serif`;
+    div.style.fontSize = '40px'; // base visual size
+    div.style.fontWeight = 'bold';
+    div.style.whiteSpace = 'nowrap';
+    
+    div.style.left = '50%';
+    div.style.top = '50%';
+    div.style.transform = 'translate(-50%, -50%)';
+    
+    overlays.push({ id, type: 'text', content: text, color, font, element: div });
+    renderLayersList();
+    makeDraggable(div);
+    
+    layer.appendChild(div);
+    document.getElementById('textOverlayInput').value = ''; // clear input
+}
+
+function renderLayersList() {
+    const list = document.getElementById('layersList');
+    list.innerHTML = '';
+    // Reverse so top layer is at the top of the list
+    [...overlays].reverse().forEach((overlay, idx) => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        item.style.background = '#f9f9f9';
+        item.style.padding = '10px';
+        item.style.borderRadius = '8px';
+        item.style.border = '1px solid #ddd';
+        
+        const name = document.createElement('span');
+        name.innerText = overlay.type === 'sticker' ? `Sticker: ${overlay.content}` : `Text: "${overlay.content}"`;
+        name.style.flex = '1';
+        name.style.overflow = 'hidden';
+        name.style.textOverflow = 'ellipsis';
+        name.style.whiteSpace = 'nowrap';
+        
+        const controls = document.createElement('div');
+        controls.style.display = 'flex';
+        controls.style.gap = '5px';
+        
+        const upBtn = document.createElement('button');
+        upBtn.innerText = '↑';
+        upBtn.style.padding = '5px';
+        upBtn.style.margin = '0';
+        upBtn.onclick = () => moveLayerUp(overlay.id);
+        
+        const downBtn = document.createElement('button');
+        downBtn.innerText = '↓';
+        downBtn.style.padding = '5px';
+        downBtn.style.margin = '0';
+        downBtn.onclick = () => moveLayerDown(overlay.id);
+        
+        const delBtn = document.createElement('button');
+        delBtn.innerText = '🗑️';
+        delBtn.style.padding = '5px';
+        delBtn.style.margin = '0';
+        delBtn.style.background = '#ffb3c6';
+        delBtn.onclick = () => deleteLayer(overlay.id);
+        
+        controls.appendChild(upBtn);
+        controls.appendChild(downBtn);
+        controls.appendChild(delBtn);
+        
+        item.appendChild(name);
+        item.appendChild(controls);
+        list.appendChild(item);
+    });
+}
+
+function moveLayerUp(id) {
+    playClick();
+    const idx = overlays.findIndex(o => o.id === id);
+    if (idx < overlays.length - 1) {
+        const temp = overlays[idx];
+        overlays[idx] = overlays[idx + 1];
+        overlays[idx + 1] = temp;
+        reorderDOM();
+        renderLayersList();
+    }
+}
+
+function moveLayerDown(id) {
+    playClick();
+    const idx = overlays.findIndex(o => o.id === id);
+    if (idx > 0) {
+        const temp = overlays[idx];
+        overlays[idx] = overlays[idx - 1];
+        overlays[idx - 1] = temp;
+        reorderDOM();
+        renderLayersList();
+    }
+}
+
+function deleteLayer(id) {
+    playClick();
+    overlays = overlays.filter(o => o.id !== id);
+    const el = document.getElementById(id);
+    if(el) el.remove();
+    renderLayersList();
+}
+
+function reorderDOM() {
+    const layer = document.getElementById('stickerLayer');
+    overlays.forEach(o => {
+        if(o.element) layer.appendChild(o.element);
+    });
+}
+
+function makeDraggable(el) {
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
+    const layer = document.getElementById('stickerLayer');
     
-    img.onmousedown = (e) => {
-        e.preventDefault(); // prevent native drag
+    el.onmousedown = (e) => {
+        e.preventDefault();
         isDragging = true;
         startX = e.clientX;
         startY = e.clientY;
         
-        // bring to front
-        layer.appendChild(img);
+        // bring to front logically and visually
+        const idx = overlays.findIndex(o => o.id === el.id);
+        if (idx !== -1 && idx < overlays.length - 1) {
+            const item = overlays.splice(idx, 1)[0];
+            overlays.push(item);
+            reorderDOM();
+            renderLayersList();
+        }
         
-        // convert center transform to absolute px if not already
-        const rect = img.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
         const layerRect = layer.getBoundingClientRect();
-        img.style.left = (rect.left - layerRect.left + rect.width/2) + 'px';
-        img.style.top = (rect.top - layerRect.top + rect.height/2) + 'px';
+        el.style.left = (rect.left - layerRect.left + rect.width/2) + 'px';
+        el.style.top = (rect.top - layerRect.top + rect.height/2) + 'px';
         
-        initialLeft = parseFloat(img.style.left);
-        initialTop = parseFloat(img.style.top);
+        initialLeft = parseFloat(el.style.left);
+        initialTop = parseFloat(el.style.top);
         
         document.onmousemove = (ev) => {
             if (!isDragging) return;
             const dx = ev.clientX - startX;
             const dy = ev.clientY - startY;
-            img.style.left = (initialLeft + dx) + 'px';
-            img.style.top = (initialTop + dy) + 'px';
+            el.style.left = (initialLeft + dx) + 'px';
+            el.style.top = (initialTop + dy) + 'px';
         };
         
         document.onmouseup = () => {
@@ -492,25 +670,16 @@ function addStickerToCanvas(stickerFilename) {
             document.onmouseup = null;
         };
     };
-    
-    // Add delete functionality
-    img.tabIndex = 0; // make focusable
-    img.onkeydown = (e) => {
-        if (e.key === 'Backspace' || e.key === 'Delete') {
-            img.remove();
-        }
-    };
-    
-    layer.appendChild(img);
-    img.focus();
 }
 
 async function finishDesign() {
     playClick();
-    document.getElementById('designArea').style.display = 'none';
+    switchScreen('screen-result');
     document.getElementById('generateTitle').style.display = 'block';
     document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
     document.getElementById('generateLoader').style.display = 'block';
+    document.getElementById('finishControls').style.display = 'none';
+    document.getElementById('finalStrip').style.display = 'none';
     
     // Collect stickers
     const layer = document.getElementById('stickerLayer');
@@ -520,18 +689,21 @@ async function finishDesign() {
     const scaleX = previewImg.naturalWidth / previewImg.width;
     const scaleY = previewImg.naturalHeight / previewImg.height;
     
-    const stickers = [];
-    const children = layer.querySelectorAll('.canvas-sticker');
-    children.forEach(c => {
-        const rect = c.getBoundingClientRect();
+    const finalOverlays = [];
+    overlays.forEach(o => {
+        const el = o.element;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
         const layerRect = layer.getBoundingClientRect();
         
-        // Center coords relative to the visual layer
         const cxVisual = (rect.left - layerRect.left) + (rect.width / 2);
         const cyVisual = (rect.top - layerRect.top) + (rect.height / 2);
         
-        stickers.push({
-            src: c.dataset.filename,
+        finalOverlays.push({
+            type: o.type,
+            content: o.content,
+            color: o.color,
+            font: o.font,
             cx: cxVisual * scaleX,
             cy: cyVisual * scaleY,
             width: rect.width * scaleX,
@@ -547,7 +719,8 @@ async function finishDesign() {
             template: selectedTemplateName,
             selected_photos: arrangementSlots,
             bg_color: currentBgColor,
-            stickers: stickers
+            shape: currentShape,
+            overlays: finalOverlays
         })
     });
     const data = await res.json();
