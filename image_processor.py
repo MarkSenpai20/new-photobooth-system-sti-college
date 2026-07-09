@@ -34,7 +34,9 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
         
     bg_hex = bg_color.lstrip('#') if bg_color else 'ffffff'
     try:
-        if len(bg_hex) == 6:
+        if bg_color == "transparent":
+            bg_rgba = (255, 255, 255, 0)
+        elif len(bg_hex) == 6:
             bg_rgba = tuple(int(bg_hex[i:i+2], 16) for i in (0, 2, 4)) + (255,)
         else:
             bg_rgba = (255, 255, 255, 255)
@@ -62,6 +64,19 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
         for i, path in enumerate(image_paths):
             img = Image.open(path).convert("RGBA")
             img = img.resize((img_width, img_height), Image.Resampling.LANCZOS)
+            
+            # Apply shape mask even for fallback layout
+            mask = Image.new('L', (img_width, img_height), 0)
+            mask_draw = ImageDraw.Draw(mask)
+            if shape == 'circle':
+                mask_draw.ellipse([0, 0, img_width, img_height], fill=255)
+            elif shape == 'rounded':
+                mask_draw.rounded_rectangle([0, 0, img_width, img_height], radius=30, fill=255)
+            else:
+                mask_draw.rectangle([0, 0, img_width, img_height], fill=255)
+            
+            img.putalpha(mask)
+            
             temp_layer = Image.new('RGBA', canvas.size, (0,0,0,0))
             temp_layer.paste(img, (margin, y_offset))
             canvas = Image.alpha_composite(canvas, temp_layer)
@@ -207,7 +222,10 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
             except Exception as e:
                 print(f"Overlay error: {e}")
                 
-    canvas.convert("RGB").save(output_path, "JPEG", quality=95)
+    if output_path.lower().endswith('.png'):
+        canvas.save(output_path, "PNG")
+    else:
+        canvas.convert("RGB").save(output_path, "JPEG", quality=95)
     return output_path
 
 def create_a4_layout(strip_path, num_copies, output_pdf_path):

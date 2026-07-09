@@ -180,13 +180,14 @@ def generate_preview(session_id):
     if err: return jsonify({"error": err}), 400
     if not photos: return jsonify({"error": "No photos selected"}), 400
     
-    preview_filename = f"preview_{session_id}.jpg"
+    preview_filename = f"preview_{session_id}.png"
     preview_path = os.path.join(session_dir, preview_filename)
     
     shape = data.get('shape', 'rectangle')
+    bg_color = data.get('bg_color', '#ffffff')
     
     # Generate the base image without custom background or stickers
-    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color="#ffffff", shape=shape, overlays_data=[])
+    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color=bg_color, shape=shape, overlays_data=[])
     
     return jsonify({"success": True, "preview_url": f"/api/session/{session_id}/photos/{preview_filename}"})
 

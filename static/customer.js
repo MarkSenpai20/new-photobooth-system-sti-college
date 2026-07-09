@@ -415,13 +415,15 @@ async function generatePreview() {
     document.getElementById('generateLoader').style.display = 'block';
     switchScreen('screen-result');
 
+    const isPlain = selectedTemplateName.startsWith('plain_');
     const res = await fetch(`/api/session/${sessionId}/generate_preview`, { 
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             template: selectedTemplateName,
             selected_photos: arrangementSlots,
-            shape: currentShape
+            shape: currentShape,
+            bg_color: isPlain ? "transparent" : "#ffffff"
         })
     });
     const data = await res.json();
@@ -674,14 +676,8 @@ function makeDraggable(el) {
 
 async function finishDesign() {
     playClick();
-    switchScreen('screen-result');
-    document.getElementById('generateTitle').style.display = 'block';
-    document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
-    document.getElementById('generateLoader').style.display = 'block';
-    document.getElementById('finishControls').style.display = 'none';
-    document.getElementById('finalStrip').style.display = 'none';
     
-    // Collect stickers
+    // Collect stickers BEFORE switching screens, otherwise getBoundingClientRect() returns 0!
     const layer = document.getElementById('stickerLayer');
     const previewImg = document.getElementById('designPreviewImg');
     
@@ -711,6 +707,14 @@ async function finishDesign() {
             rotation: 0 
         });
     });
+
+    switchScreen('screen-result');
+    document.getElementById('generateTitle').style.display = 'block';
+    document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
+    document.getElementById('generateLoader').style.display = 'block';
+    document.getElementById('finishControls').style.display = 'none';
+    document.getElementById('finalStrip').style.display = 'none';
+    
     
     const res = await fetch(`/api/session/${sessionId}/generate`, { 
         method: 'POST',
