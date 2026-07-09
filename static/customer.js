@@ -154,7 +154,13 @@ async function startCamera() {
                 height: { ideal: 1080 } 
             } 
         });
-        document.getElementById('videoElement').srcObject = stream;
+        const videoEl = document.getElementById('videoElement');
+        videoEl.srcObject = stream;
+        if (currentFacingMode === 'user') {
+            videoEl.classList.add('mirrored');
+        } else {
+            videoEl.classList.remove('mirrored');
+        }
     } catch (err) {
         console.error(err);
         alert("Camera access denied or unavailable.");
@@ -201,7 +207,14 @@ async function takePhoto() {
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
+    const ctx = canvas.getContext('2d');
+    
+    if (currentFacingMode === 'user') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+    }
+    
+    ctx.drawImage(video, 0, 0);
     
     overlay.style.display = 'none';
     
