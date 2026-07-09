@@ -90,6 +90,44 @@ def create_plain_template():
 
 @app.route('/api/templates/<filename>')
 def get_template(filename):
+    filepath = os.path.join(app.config['TEMPLATE_FOLDER'], filename)
+    if not os.path.exists(filepath):
+        return "Not found", 404
+        
+    if filename.startswith('plain_'):
+        # Generate a thumbnail with placeholders so the user sees the layout
+        from PIL import Image, ImageDraw
+        img = Image.open(filepath).convert("RGBA")
+        draw = ImageDraw.Draw(img)
+        config_path = filepath + ".json"
+        
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            slots = config.get('slots', [])
+            for slot in slots:
+                pts = slot['points']
+                quad = [(p['x'], p['y']) for p in pts]
+                draw.polygon(quad, fill=(200, 200, 200, 255), outline=(150, 150, 150, 255))
+        else:
+            # Fallback auto-spacing
+            margin = 30
+            # Default to 3 slots for visual placeholder if no config exists
+            num_images = 3
+            available_height = img.height - (margin * (num_images + 1)) - 150
+            img_height = available_height // num_images
+            img_width = img.width - (margin * 2)
+            y_offset = margin
+            for i in range(num_images):
+                draw.rectangle([margin, y_offset, margin + img_width, y_offset + img_height], fill=(200, 200, 200, 255), outline=(150, 150, 150, 255))
+                y_offset += img_height + margin
+                
+        import io
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+        
     return send_from_directory(app.config['TEMPLATE_FOLDER'], filename)
 
 @app.route('/api/templates/<filename>/config', methods=['GET', 'POST'])
@@ -183,11 +221,10 @@ def generate_preview(session_id):
     preview_filename = f"preview_{session_id}.png"
     preview_path = os.path.join(session_dir, preview_filename)
     
-    shape = data.get('shape', 'rectangle')
-    bg_color = data.get('bg_color', '#ffffff')
+    shapes = data.get('shapes', [])
     
     # Generate the base image without custom background or stickers
-    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color=bg_color, shape=shape, overlays_data=[])
+    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color=bg_color, shapes=shapes, overlays_data=[])
     
     return jsonify({"success": True, "preview_url": f"/api/session/{session_id}/photos/{preview_filename}"})
 
@@ -207,7 +244,7 @@ def generate(session_id):
     if not photos: return jsonify({"error": "No photos selected"}), 400
     
     bg_color = data.get('bg_color', '#ffffff')
-    shape = data.get('shape', 'rectangle')
+    shapes = data.get('shapes', [])
     overlays_data = data.get('overlays', [])
     
     # resolve sticker paths
@@ -219,7 +256,7 @@ def generate(session_id):
     strip_filename = f"{session_id}_strip_{timestamp}.jpg"
     strip_path = os.path.join(app.config['OUTPUT_FOLDER'], strip_filename)
     
-    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, shape=shape, overlays_data=overlays_data)
+    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, shapes=shapes, overlays_data=overlays_data)
     
     pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)

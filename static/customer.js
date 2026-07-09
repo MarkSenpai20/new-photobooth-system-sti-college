@@ -115,7 +115,8 @@ function switchScreen(screenId) {
 
 // Design State
 let currentBgColor = '#ffffff';
-let currentShape = 'rectangle';
+let currentShapes = []; // Array of shapes, one per slot
+let selectedShapeSlot = 0; // Currently selected slot for shaping
 let overlays = []; // { id, type: 'sticker'|'text', content, x, y, width, height, color, font }
 let overlayCounter = 0;
 
@@ -269,6 +270,9 @@ async function finishCapture() {
         const img = document.createElement('img');
         img.src = `/api/templates/${t}`;
         img.style.width = '120px';
+        img.style.height = '160px'; // Force consistent height
+        img.style.objectFit = 'contain';
+        img.style.background = '#fff';
         img.style.border = '4px solid var(--border-pink)';
         img.style.borderRadius = '8px';
         img.style.cursor = 'pointer';
@@ -390,10 +394,44 @@ function setBgColor(hex) {
     document.getElementById('designCanvasWrapper').style.backgroundColor = hex;
 }
 
+function renderShapeSlotSelector() {
+    const container = document.getElementById('shapeSlotSelector');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    // Check if it's a plain template. If not, hide the selector.
+    if (!selectedTemplateName.startsWith('plain_')) {
+        container.style.display = 'none';
+        return;
+    } else {
+        container.style.display = 'flex';
+    }
+    
+    arrangementSlots.forEach((photo, idx) => {
+        const img = document.createElement('img');
+        img.src = `/api/session/${sessionId}/photos/${photo}`;
+        img.style.width = '60px';
+        img.style.height = '60px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '5px';
+        img.style.cursor = 'pointer';
+        img.style.border = idx === selectedShapeSlot ? '4px solid #00cec9' : '4px solid transparent';
+        
+        img.onclick = () => {
+            playClick();
+            selectedShapeSlot = idx;
+            renderShapeSlotSelector();
+        };
+        container.appendChild(img);
+    });
+}
+
 async function setPhotoShape(shape) {
     playClick();
-    currentShape = shape;
-    // Re-generate preview with new shape
+    if (selectedShapeSlot >= 0 && selectedShapeSlot < currentShapes.length) {
+        currentShapes[selectedShapeSlot] = shape;
+    }
+    // Re-generate preview with new shapes
     await generatePreview();
 }
 
@@ -422,7 +460,7 @@ async function generatePreview() {
         body: JSON.stringify({
             template: selectedTemplateName,
             selected_photos: arrangementSlots,
-            shape: currentShape,
+            shapes: currentShapes,
             bg_color: isPlain ? "transparent" : "#ffffff"
         })
     });
@@ -458,7 +496,9 @@ async function goToDesign() {
     overlays = [];
     document.getElementById('stickerLayer').innerHTML = '';
     setBgColor('#ffffff');
-    currentShape = 'rectangle';
+    currentShapes = arrangementSlots.map(() => 'rectangle');
+    selectedShapeSlot = 0;
+    renderShapeSlotSelector();
     renderLayersList();
     switchDesignTab('tab-bg');
     
@@ -723,7 +763,7 @@ async function finishDesign() {
             template: selectedTemplateName,
             selected_photos: arrangementSlots,
             bg_color: currentBgColor,
-            shape: currentShape,
+            shapes: currentShapes,
             overlays: finalOverlays
         })
     });

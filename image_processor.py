@@ -22,8 +22,9 @@ def get_template_config(template_path):
             return json.load(f)
     return None
 
-def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None, bg_color="#ffffff", shape='rectangle', overlays_data=None):
+def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None, bg_color="#ffffff", shapes=None, overlays_data=None):
     if overlays_data is None: overlays_data = []
+    if shapes is None: shapes = []
     
     if template_path and os.path.exists(template_path):
         template = Image.open(template_path).convert("RGBA")
@@ -66,11 +67,13 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
             img = img.resize((img_width, img_height), Image.Resampling.LANCZOS)
             
             # Apply shape mask even for fallback layout
+            slot_shape = shapes[i] if i < len(shapes) else 'rectangle'
+            
             mask = Image.new('L', (img_width, img_height), 0)
             mask_draw = ImageDraw.Draw(mask)
-            if shape == 'circle':
+            if slot_shape == 'circle':
                 mask_draw.ellipse([0, 0, img_width, img_height], fill=255)
-            elif shape == 'rounded':
+            elif slot_shape == 'rounded':
                 mask_draw.rounded_rectangle([0, 0, img_width, img_height], radius=30, fill=255)
             else:
                 mask_draw.rectangle([0, 0, img_width, img_height], fill=255)
@@ -118,9 +121,9 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
             
             # Determine which shape to use
             # If it's a plain template, use the user's selected shape. Otherwise, stick to the template's defined shape.
-            use_shape = shape if (template_path and 'plain_' in os.path.basename(template_path)) else slot.get('shape', 'rectangle')
+            slot_shape = shapes[i] if (i < len(shapes) and template_path and 'plain_' in os.path.basename(template_path)) else slot.get('shape', 'rectangle')
             
-            if len(target_quad) == 4 and use_shape == 'rectangle':
+            if len(target_quad) == 4 and slot_shape == 'rectangle':
                 source_canvas_quad = [(0,0), (img.width,0), (img.width,img.height), (0,img.height)]
                 coeffs = find_coeffs(source_canvas_quad, target_quad)
                 warped = img.transform((strip_width, strip_height), Image.PERSPECTIVE, coeffs, Image.BICUBIC)
@@ -131,12 +134,12 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
             mask = Image.new('L', (strip_width, strip_height), 0)
             mask_draw = ImageDraw.Draw(mask)
             
-            if use_shape == 'circle':
+            if slot_shape == 'circle':
                 mask_draw.ellipse([min_x, min_y, max_x, max_y], fill=255)
-            elif use_shape == 'rounded':
+            elif slot_shape == 'rounded':
                 radius = 30
                 mask_draw.rounded_rectangle([min_x, min_y, max_x, max_y], radius=radius, fill=255)
-            elif use_shape == 'star':
+            elif slot_shape == 'star':
                 cx, cy = (min_x + max_x) / 2, (min_y + max_y) / 2
                 r_out = min(tw, th) / 2
                 r_in = r_out * 0.4
