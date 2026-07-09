@@ -167,51 +167,24 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
                 cy = float(o['cy'])
                 
                 if o['type'] == 'sticker':
-                    if 'path' not in o or not os.path.exists(o['path']):
-                        continue
-                    element_img = Image.open(o['path']).convert("RGBA")
-                    sw = int(float(o['width']))
-                    sh = int(float(o['height']))
-                    if sw <= 0 or sh <= 0: continue
-                    element_img = element_img.resize((sw, sh), Image.Resampling.LANCZOS)
-                
-                elif o['type'] == 'text':
-                    # For text, we dynamically render it to an image first
-                    text = o['content']
-                    color_hex = o.get('color', '#000000')
-                    font_name = o.get('font', 'Nunito')
-                    
-                    # Try to map font name to a common system font or use default
-                    # In a real system, you'd have a directory of .ttf files. We'll use default for safety if not found.
-                    try:
-                        # You can place .ttf files in assets/fonts to support custom ones perfectly.
-                        # For now, Pillow's default or Arial
-                        font_path = f"assets/fonts/{font_name}.ttf"
-                        if os.path.exists(font_path):
-                            font = ImageFont.truetype(font_path, 80)
-                        else:
-                            font = ImageFont.truetype("arial.ttf", 80)
-                    except:
-                        font = ImageFont.load_default()
-
-                    # Measure text
-                    # getbbox returns (left, top, right, bottom)
-                    try:
-                        bbox = font.getbbox(text)
-                        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-                    except AttributeError:
-                        tw, th = font.getsize(text)
-                    
-                    element_img = Image.new('RGBA', (tw + 20, th + 20), (0,0,0,0))
-                    d = ImageDraw.Draw(element_img)
-                    d.text((10, 10), text, font=font, fill=color_hex)
-                    
-                    # Scale to match frontend width approximately
-                    sw = int(float(o['width']))
-                    # maintain aspect ratio for text
-                    sh = int(element_img.height * (sw / element_img.width)) if element_img.width > 0 else 0
-                    if sw > 0 and sh > 0:
+                    if 'base64' in o:
+                        import base64
+                        from io import BytesIO
+                        img_data = base64.b64decode(o['base64'].split(',')[1])
+                        element_img = Image.open(BytesIO(img_data)).convert("RGBA")
+                        sw = int(float(o['width']))
+                        sh = int(float(o['height']))
+                        if sw > 0 and sh > 0:
+                            element_img = element_img.resize((sw, sh), Image.Resampling.LANCZOS)
+                    else:
+                        if 'path' not in o or not os.path.exists(o['path']):
+                            continue
+                        element_img = Image.open(o['path']).convert("RGBA")
+                        sw = int(float(o['width']))
+                        sh = int(float(o['height']))
+                        if sw <= 0 or sh <= 0: continue
                         element_img = element_img.resize((sw, sh), Image.Resampling.LANCZOS)
+
 
                 rot = float(o.get('rotation', 0))
                 if rot != 0:

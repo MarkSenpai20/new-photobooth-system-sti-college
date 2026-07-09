@@ -246,18 +246,17 @@ def generate(session_id):
     
     bg_color = data.get('bg_color', '#ffffff')
     shapes = data.get('shapes', [])
-    overlays_data = data.get('overlays', [])
     
-    # resolve sticker paths
-    for o in overlays_data:
-        if o['type'] == 'sticker':
+    overlays = data.get('overlays', [])
+    for o in overlays:
+        if o['type'] == 'sticker' and 'base64' not in o:
             o['path'] = os.path.join(app.config['STICKER_FOLDER'], o['content'])
     
     timestamp = int(time.time())
     strip_filename = f"{session_id}_strip_{timestamp}.jpg"
     strip_path = os.path.join(app.config['OUTPUT_FOLDER'], strip_filename)
     
-    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, shapes=shapes, overlays_data=overlays_data)
+    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, shapes=shapes, overlays_data=overlays)
     
     pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)

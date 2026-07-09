@@ -735,17 +735,46 @@ async function finishDesign() {
         const cxVisual = (rect.left - layerRect.left) + (rect.width / 2);
         const cyVisual = (rect.top - layerRect.top) + (rect.height / 2);
         
-        finalOverlays.push({
-            type: o.type,
-            content: o.content,
-            color: o.color,
-            font: o.font,
-            cx: cxVisual * scaleX,
-            cy: cyVisual * scaleY,
-            width: rect.width * scaleX,
-            height: rect.height * scaleY,
-            rotation: 0 
-        });
+        if (o.type === 'text') {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const computedStyle = window.getComputedStyle(el);
+            const fontSize = parseFloat(computedStyle.fontSize);
+            
+            const scale = 3;
+            canvas.width = rect.width * scale;
+            canvas.height = rect.height * scale;
+            
+            ctx.scale(scale, scale);
+            ctx.font = `${computedStyle.fontWeight} ${fontSize}px ${computedStyle.fontFamily}`;
+            ctx.fillStyle = o.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            ctx.fillText(o.content, rect.width / 2, rect.height / 2);
+            
+            finalOverlays.push({
+                type: 'sticker',
+                base64: canvas.toDataURL('image/png'),
+                cx: cxVisual * scaleX,
+                cy: cyVisual * scaleY,
+                width: rect.width * scaleX,
+                height: rect.height * scaleY,
+                rotation: 0 
+            });
+        } else {
+            finalOverlays.push({
+                type: o.type,
+                content: o.content,
+                color: o.color,
+                font: o.font,
+                cx: cxVisual * scaleX,
+                cy: cyVisual * scaleY,
+                width: rect.width * scaleX,
+                height: rect.height * scaleY,
+                rotation: 0 
+            });
+        }
     });
 
     switchScreen('screen-result');
