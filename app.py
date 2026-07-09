@@ -222,6 +222,7 @@ def generate_preview(session_id):
     preview_path = os.path.join(session_dir, preview_filename)
     
     shapes = data.get('shapes', [])
+    bg_color = data.get('bg_color', '#ffffff')
     
     # Generate the base image without custom background or stickers
     create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color=bg_color, shapes=shapes, overlays_data=[])
