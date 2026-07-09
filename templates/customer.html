@@ -112,10 +112,24 @@
                             <button class="btn-yellow" style="padding: 10px; margin: 0; font-size: 14px; flex-shrink: 0;" onclick="switchDesignTab('tab-text')">Text</button>
                             <button class="btn-yellow" style="padding: 10px; margin: 0; font-size: 14px; flex-shrink: 0;" onclick="switchDesignTab('tab-layers')">Layers</button>
                         </div>
-                        
+                        <!-- Tab: Bg & Shape -->
+                        <div id="tab-bg" class="design-tab" style="display: block;">
+                            <div id="bgToolsContainer">
+                                <h3 style="margin-bottom: 10px; color: #d63031;">Background Color</h3>
+                                <div id="colorPalette" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                                    <div class="color-swatch" style="background: #ffffff;" onclick="setBgColor('#ffffff')"></div>
+                                    <div class="color-swatch" style="background: #ffcccc;" onclick="setBgColor('#ffcccc')"></div>
+                                    <div class="color-swatch" style="background: #ccffff;" onclick="setBgColor('#ccffff')"></div>
+                                    <div class="color-swatch" style="background: #ffffcc;" onclick="setBgColor('#ffffcc')"></div>
+                                    <div class="color-swatch" style="background: #000000;" onclick="setBgColor('#000000')"></div>
                                     <input type="color" id="customBgPicker" value="#ffffff" onchange="setBgColor(this.value)" style="width: 40px; height: 40px; cursor: pointer; border: none; border-radius: 50%; padding: 0; overflow: hidden;" />
                                 </div>
                                 
+                                <h3 style="margin-bottom: 10px; color: #d63031;">Select Photo to Shape</h3>
+                                <div id="shapeSlotSelector" style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+
                                 <h3 style="margin-bottom: 10px; color: #d63031;">Photo Shape</h3>
                                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                     <button onclick="setPhotoShape('rectangle')" style="padding: 10px; background: #eee; border: 2px solid #ccc;">Rectangle</button>
