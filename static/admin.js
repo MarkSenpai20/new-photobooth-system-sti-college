@@ -64,7 +64,49 @@ async function saveSettings() {
     alert("Saved!");
 }
 
-window.onload = loadData;
+function updatePlainPreview() {
+    const w = parseInt(document.getElementById('plainWidth').value) || 600;
+    const h = parseInt(document.getElementById('plainHeight').value) || 1800;
+    const box = document.getElementById('plainPreviewBox');
+    
+    // Max constraints for the preview box container is 200x200
+    // We scale the width/height to fit inside 180x180 so it has some breathing room
+    let scale = 1;
+    if (w > h) {
+        scale = 160 / w;
+    } else {
+        scale = 160 / h;
+    }
+    
+    box.style.width = Math.max((w * scale), 20) + 'px';
+    box.style.height = Math.max((h * scale), 20) + 'px';
+}
+
+async function createPlainTemplate() {
+    const name = document.getElementById('plainName').value;
+    const width = document.getElementById('plainWidth').value;
+    const height = document.getElementById('plainHeight').value;
+    
+    if(!name) return alert("Please enter a name for the plain template.");
+    
+    const res = await fetch('/api/templates/create_plain', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ name, width, height })
+    });
+    
+    if(res.ok) {
+        alert("Plain Template Created!");
+        loadData();
+    } else {
+        alert("Failed to create template.");
+    }
+}
+
+window.onload = () => {
+    loadData();
+    updatePlainPreview(); // Initialize preview box
+};
 
 // --- VISUAL EDITOR ---
 

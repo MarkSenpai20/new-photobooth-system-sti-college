@@ -63,6 +63,31 @@ def api_templates():
     templates = [f for f in os.listdir(app.config['TEMPLATE_FOLDER']) if f.endswith('.png')]
     return jsonify({"templates": templates})
 
+@app.route('/api/templates/create_plain', methods=['POST'])
+def create_plain_template():
+    data = request.json
+    name = data.get('name', 'untitled').strip()
+    width = int(data.get('width', 600))
+    height = int(data.get('height', 1800))
+    
+    # Sanitize name
+    safe_name = "".join([c for c in name if c.isalpha() or c.isdigit() or c in ('-', '_')]).rstrip()
+    if not safe_name: safe_name = "untitled"
+    
+    # Force prefix
+    if not safe_name.startswith('plain_'):
+        safe_name = f"plain_{safe_name}"
+        
+    filename = f"{safe_name}.png"
+    filepath = os.path.join(app.config['TEMPLATE_FOLDER'], filename)
+    
+    from PIL import Image
+    # Create completely transparent PNG
+    img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    img.save(filepath, "PNG")
+    
+    return jsonify({"success": True, "filename": filename})
+
 @app.route('/api/templates/<filename>')
 def get_template(filename):
     return send_from_directory(app.config['TEMPLATE_FOLDER'], filename)
