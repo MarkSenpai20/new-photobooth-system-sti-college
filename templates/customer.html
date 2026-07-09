@@ -6,6 +6,22 @@
     <title>Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/customer.css">
+    <style>
+        .color-swatch {
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+            border: 2px solid #ccc; transition: transform 0.2s;
+        }
+        .color-swatch:hover { transform: scale(1.1); }
+        .sticker-item {
+            width: 60px; height: 60px; object-fit: contain; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .sticker-item:hover { transform: scale(1.1); }
+        .canvas-sticker {
+            position: absolute; cursor: move; pointer-events: auto;
+            transform-origin: center center;
+        }
+    </style>
 </head>
 <body>
     
@@ -67,9 +83,50 @@
             
             <div style="margin-top: 20px;">
                 <button onclick="backToTemplateSelection()" style="background: #f1c40f; color: #333; font-weight: bold;">Back</button>
-                <button id="generateArrangementBtn" onclick="generateFromArrangement()" style="background: #2ecc71; font-weight: bold;" disabled>Generate Strip</button>
+                <button id="generateArrangementBtn" onclick="goToDesign()" style="background: #2ecc71; font-weight: bold;" disabled>Next: Design ✨</button>
             </div>
         </div>
+
+            <div id="designArea" style="display: none; width: 100%; height: 100vh; padding: 20px; box-sizing: border-box;">
+                <h2 style="color: #c0392b; margin-bottom: 10px; text-align: center;">Design your Photostrip! ✨</h2>
+                <div style="display: flex; gap: 20px; height: calc(100% - 60px);">
+                    <!-- Canvas Side -->
+                    <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #ffeaa7; border-radius: 12px; position: relative; overflow: hidden;">
+                        <div id="designCanvasWrapper" style="position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                            <img id="designPreviewImg" style="display: block; max-height: 75vh;" />
+                            <div id="stickerLayer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tools Side -->
+                    <div style="width: 300px; background: white; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; gap: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        <div>
+                            <h3 style="margin-bottom: 10px; color: #d63031;">Background Color</h3>
+                            <div id="colorPalette" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <div class="color-swatch" style="background: #ffffff;" onclick="setBgColor('#ffffff')"></div>
+                                <div class="color-swatch" style="background: #ffcccc;" onclick="setBgColor('#ffcccc')"></div>
+                                <div class="color-swatch" style="background: #ccffff;" onclick="setBgColor('#ccffff')"></div>
+                                <div class="color-swatch" style="background: #ffffcc;" onclick="setBgColor('#ffffcc')"></div>
+                                <div class="color-swatch" style="background: #000000;" onclick="setBgColor('#000000')"></div>
+                                <input type="color" id="customBgPicker" value="#ffffff" onchange="setBgColor(this.value)" style="width: 40px; height: 40px; cursor: pointer; border: none; border-radius: 50%; padding: 0; overflow: hidden;" />
+                            </div>
+                        </div>
+                        
+                        <div style="flex: 1; overflow-y: auto;">
+                            <h3 style="margin-bottom: 10px; color: #d63031;">Stickers</h3>
+                            <div id="stickerDrawer" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <!-- Stickers loaded via JS -->
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Drag stickers to move. Click to bring forward. Delete/Backspace to remove.</div>
+                            <button class="btn-green" style="width: 100%; margin-bottom: 10px;" onclick="finishDesign()">Generate Print! 🖨️</button>
+                            <button class="btn-pink" style="width: 100%;" onclick="backToArrangementFromDesign()">Back</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         <h1 id="generateTitle" style="display: none; color: #c0392b;">Generating Magic... ✨</h1>
                 <div id="generateLoader" class="loader" style="display:none;"></div>

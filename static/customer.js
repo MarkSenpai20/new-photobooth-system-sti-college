@@ -379,18 +379,175 @@ function backToTemplateSelection() {
     document.getElementById('templateSelectionArea').style.display = 'block';
 }
 
-async function generateFromArrangement() {
+let currentBgColor = '#ffffff';
+
+function setBgColor(hex) {
+    currentBgColor = hex;
+    document.getElementById('designCanvasWrapper').style.backgroundColor = hex;
+}
+
+function backToArrangementFromDesign() {
+    playClick();
+    document.getElementById('designArea').style.display = 'none';
+    document.getElementById('arrangementArea').style.display = 'block';
+}
+
+async function goToDesign() {
+    playClick();
     document.getElementById('arrangementArea').style.display = 'none';
+    document.getElementById('generateTitle').style.display = 'block';
+    document.getElementById('generateTitle').innerText = "Loading Canvas... 🎨";
+    document.getElementById('generateLoader').style.display = 'block';
+
+    const res = await fetch(`/api/session/${sessionId}/generate_preview`, { 
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            template: selectedTemplateName,
+            selected_photos: arrangementSlots
+        })
+    });
+    const data = await res.json();
+    
+    if(data.success) {
+        document.getElementById('generateLoader').style.display = 'none';
+        document.getElementById('generateTitle').style.display = 'none';
+        
+        document.getElementById('designPreviewImg').src = data.preview_url + "?t=" + Date.now();
+        document.getElementById('designArea').style.display = 'block';
+        
+        // reset design
+        document.getElementById('stickerLayer').innerHTML = '';
+        setBgColor('#ffffff');
+        
+        loadStickers();
+    } else {
+        alert("Error: " + data.error);
+        backToCamera();
+    }
+}
+
+async function loadStickers() {
+    const drawer = document.getElementById('stickerDrawer');
+    if (drawer.children.length > 0) return; // already loaded
+    try {
+        const res = await fetch('/api/stickers');
+        const data = await res.json();
+        data.stickers.forEach(s => {
+            const img = document.createElement('img');
+            img.src = `/api/stickers/${s}`;
+            img.className = 'sticker-item';
+            img.onclick = () => { playClick(); addStickerToCanvas(s); };
+            drawer.appendChild(img);
+        });
+    } catch(e) { console.error(e); }
+}
+
+function addStickerToCanvas(stickerFilename) {
+    const layer = document.getElementById('stickerLayer');
+    const img = document.createElement('img');
+    img.src = `/api/stickers/${stickerFilename}`;
+    img.className = 'canvas-sticker';
+    img.dataset.filename = stickerFilename;
+    
+    // Default size and center position
+    img.style.width = '100px';
+    img.style.left = '50%';
+    img.style.top = '50%';
+    img.style.transform = 'translate(-50%, -50%)';
+    
+    // Make interactive
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+    
+    img.onmousedown = (e) => {
+        e.preventDefault(); // prevent native drag
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        
+        // bring to front
+        layer.appendChild(img);
+        
+        // convert center transform to absolute px if not already
+        const rect = img.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
+        img.style.left = (rect.left - layerRect.left + rect.width/2) + 'px';
+        img.style.top = (rect.top - layerRect.top + rect.height/2) + 'px';
+        
+        initialLeft = parseFloat(img.style.left);
+        initialTop = parseFloat(img.style.top);
+        
+        document.onmousemove = (ev) => {
+            if (!isDragging) return;
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            img.style.left = (initialLeft + dx) + 'px';
+            img.style.top = (initialTop + dy) + 'px';
+        };
+        
+        document.onmouseup = () => {
+            isDragging = false;
+            document.onmousemove = null;
+            document.onmouseup = null;
+        };
+    };
+    
+    // Add delete functionality
+    img.tabIndex = 0; // make focusable
+    img.onkeydown = (e) => {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+            img.remove();
+        }
+    };
+    
+    layer.appendChild(img);
+    img.focus();
+}
+
+async function finishDesign() {
+    playClick();
+    document.getElementById('designArea').style.display = 'none';
     document.getElementById('generateTitle').style.display = 'block';
     document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
     document.getElementById('generateLoader').style.display = 'block';
+    
+    // Collect stickers
+    const layer = document.getElementById('stickerLayer');
+    const previewImg = document.getElementById('designPreviewImg');
+    
+    // If the image hasn't loaded fully, naturalWidth could be 0, but by this point it should be loaded.
+    const scaleX = previewImg.naturalWidth / previewImg.width;
+    const scaleY = previewImg.naturalHeight / previewImg.height;
+    
+    const stickers = [];
+    const children = layer.querySelectorAll('.canvas-sticker');
+    children.forEach(c => {
+        const rect = c.getBoundingClientRect();
+        const layerRect = layer.getBoundingClientRect();
+        
+        // Center coords relative to the visual layer
+        const cxVisual = (rect.left - layerRect.left) + (rect.width / 2);
+        const cyVisual = (rect.top - layerRect.top) + (rect.height / 2);
+        
+        stickers.push({
+            src: c.dataset.filename,
+            cx: cxVisual * scaleX,
+            cy: cyVisual * scaleY,
+            width: rect.width * scaleX,
+            height: rect.height * scaleY,
+            rotation: 0 
+        });
+    });
     
     const res = await fetch(`/api/session/${sessionId}/generate`, { 
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             template: selectedTemplateName,
-            selected_photos: arrangementSlots
+            selected_photos: arrangementSlots,
+            bg_color: currentBgColor,
+            stickers: stickers
         })
     });
     const data = await res.json();

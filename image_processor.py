@@ -22,7 +22,9 @@ def get_template_config(template_path):
             return json.load(f)
     return None
 
-def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None):
+def create_photostrip(image_paths, output_path, template_path=None, custom_coords=None, bg_color="#ffffff", stickers_data=None):
+    if stickers_data is None: stickers_data = []
+    
     if template_path and os.path.exists(template_path):
         template = Image.open(template_path).convert("RGBA")
         strip_width, strip_height = template.size
@@ -30,13 +32,22 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
         template = None
         strip_width, strip_height = 600, 1800
         
-    canvas = Image.new('RGBA', (strip_width, strip_height), color=(255, 255, 255, 255))
+    bg_hex = bg_color.lstrip('#') if bg_color else 'ffffff'
+    try:
+        if len(bg_hex) == 6:
+            bg_rgba = tuple(int(bg_hex[i:i+2], 16) for i in (0, 2, 4)) + (255,)
+        else:
+            bg_rgba = (255, 255, 255, 255)
+    except:
+        bg_rgba = (255, 255, 255, 255)
+        
+    canvas = Image.new('RGBA', (strip_width, strip_height), color=bg_rgba)
     draw = ImageDraw.Draw(canvas)
     
     num_images = len(image_paths)
     if num_images == 0:
-        if template: canvas.paste(template, (0,0), template)
-        canvas.convert("RGB").save(output_path, "JPEG")
+        if template: canvas = Image.alpha_composite(canvas, template)
+        canvas.convert("RGB").save(output_path, "JPEG", quality=95)
         return output_path
 
     config = get_template_config(template_path)
@@ -123,6 +134,41 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
     if template:
         canvas = Image.alpha_composite(canvas, template)
         
+    if stickers_data:
+        for s in stickers_data:
+            try:
+                if 'path' not in s or not os.path.exists(s['path']):
+                    continue
+                sticker_img = Image.open(s['path']).convert("RGBA")
+                
+                # We expect the frontend to send coordinates relative to the final strip size
+                # or a scale multiplier. Let's assume the frontend sends x, y, width, height, rotation
+                # mapped to the actual strip_width / strip_height.
+                sw = int(float(s['width']))
+                sh = int(float(s['height']))
+                if sw <= 0 or sh <= 0: continue
+                
+                sticker_img = sticker_img.resize((sw, sh), Image.Resampling.LANCZOS)
+                
+                rot = float(s.get('rotation', 0))
+                if rot != 0:
+                    sticker_img = sticker_img.rotate(-rot, expand=True, resample=Image.Resampling.BICUBIC)
+                
+                # x, y is center from frontend usually, or maybe top-left?
+                # If frontend sends top-left before rotation, we need to map to center, rotate, then paste.
+                # Let's say frontend sends 'cx', 'cy' (center coords).
+                cx = float(s['cx'])
+                cy = float(s['cy'])
+                
+                offset_x = int(cx - sticker_img.width / 2)
+                offset_y = int(cy - sticker_img.height / 2)
+                
+                temp_layer = Image.new('RGBA', canvas.size, (0,0,0,0))
+                temp_layer.paste(sticker_img, (offset_x, offset_y))
+                canvas = Image.alpha_composite(canvas, temp_layer)
+            except Exception as e:
+                print(f"Sticker error: {e}")
+                
     canvas.convert("RGB").save(output_path, "JPEG", quality=95)
     return output_path
 

@@ -11,11 +11,13 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
 app.config['TEMPLATE_FOLDER'] = 'assets/templates'
+app.config['STICKER_FOLDER'] = 'assets/stickers'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024 # 50MB max
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 os.makedirs(app.config['TEMPLATE_FOLDER'], exist_ok=True)
+os.makedirs(app.config['STICKER_FOLDER'], exist_ok=True)
 
 SETTINGS_FILE = 'settings.json'
 
@@ -78,6 +80,15 @@ def template_config(filename):
             return jsonify(json.load(f))
     return jsonify({"slots": []})
 
+@app.route('/api/stickers', methods=['GET'])
+def api_stickers():
+    stickers = [f for f in os.listdir(app.config['STICKER_FOLDER']) if f.endswith('.png')]
+    return jsonify({"stickers": stickers})
+
+@app.route('/api/stickers/<filename>')
+def get_sticker(filename):
+    return send_from_directory(app.config['STICKER_FOLDER'], filename)
+
 @app.route('/api/session/start', methods=['POST'])
 def start_session():
     data = request.json
@@ -105,7 +116,7 @@ def capture(session_id):
 def get_photos(session_id):
     session_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
     if not os.path.exists(session_dir): return jsonify({"photos": []})
-    photos = [f for f in os.listdir(session_dir) if f.endswith('.jpg')]
+    photos = [f for f in os.listdir(session_dir) if f.endswith('.jpg') and not f.startswith('preview_')]
     return jsonify({"photos": sorted(photos)})
 
 @app.route('/api/session/<session_id>/photos/<filename>', methods=['GET', 'DELETE'])
@@ -117,18 +128,7 @@ def manage_photo(session_id, filename):
         return jsonify({"success": True})
     return send_file(filepath)
 
-@app.route('/api/session/<session_id>/generate', methods=['POST'])
-def generate(session_id):
-    settings = load_settings()
-    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-    
-    all_photos = sorted([f for f in os.listdir(session_dir) if f.endswith('.jpg')])
-    if not all_photos: return jsonify({"error": "No photos in session"}), 400
-    
-    data = request.json or {}
-    template_name = data.get('template', settings.get('active_template'))
-    template_path = os.path.join(app.config['TEMPLATE_FOLDER'], template_name) if template_name else None
-    
+def resolve_photos(data, session_dir, all_photos):
     if 'selected_photos' in data and isinstance(data['selected_photos'], list) and data['selected_photos']:
         photos = []
         for filename in data['selected_photos']:
@@ -136,25 +136,66 @@ def generate(session_id):
             if os.path.exists(p):
                 photos.append(p)
             else:
-                return jsonify({"error": f"Photo {filename} not found"}), 400
-    else:
-        photos = [os.path.join(session_dir, f) for f in all_photos]
+                return None, f"Photo {filename} not found"
+        return photos, None
+    return [os.path.join(session_dir, f) for f in all_photos], None
+
+@app.route('/api/session/<session_id>/generate_preview', methods=['POST'])
+def generate_preview(session_id):
+    settings = load_settings()
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+    all_photos = sorted([f for f in os.listdir(session_dir) if f.endswith('.jpg') and not f.startswith('preview_')])
+    if not all_photos: return jsonify({"error": "No photos in session"}), 400
     
+    data = request.json or {}
+    template_name = data.get('template', settings.get('active_template'))
+    template_path = os.path.join(app.config['TEMPLATE_FOLDER'], template_name) if template_name else None
+    
+    photos, err = resolve_photos(data, session_dir, all_photos)
+    if err: return jsonify({"error": err}), 400
     if not photos: return jsonify({"error": "No photos selected"}), 400
+    
+    preview_filename = f"preview_{session_id}.jpg"
+    preview_path = os.path.join(session_dir, preview_filename)
+    
+    # Generate the base image without custom background or stickers
+    create_photostrip(photos, preview_path, template_path, custom_coords=[], bg_color="#ffffff", stickers_data=[])
+    
+    return jsonify({"success": True, "preview_url": f"/api/session/{session_id}/photos/{preview_filename}"})
+
+@app.route('/api/session/<session_id>/generate', methods=['POST'])
+def generate(session_id):
+    settings = load_settings()
+    session_dir = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
+    all_photos = sorted([f for f in os.listdir(session_dir) if f.endswith('.jpg') and not f.startswith('preview_')])
+    if not all_photos: return jsonify({"error": "No photos in session"}), 400
+    
+    data = request.json or {}
+    template_name = data.get('template', settings.get('active_template'))
+    template_path = os.path.join(app.config['TEMPLATE_FOLDER'], template_name) if template_name else None
+    
+    photos, err = resolve_photos(data, session_dir, all_photos)
+    if err: return jsonify({"error": err}), 400
+    if not photos: return jsonify({"error": "No photos selected"}), 400
+    
+    bg_color = data.get('bg_color', '#ffffff')
+    stickers_data = data.get('stickers', [])
+    
+    # resolve sticker paths
+    for s in stickers_data:
+        s['path'] = os.path.join(app.config['STICKER_FOLDER'], s['src'])
     
     timestamp = int(time.time())
     strip_filename = f"{session_id}_strip_{timestamp}.jpg"
     strip_path = os.path.join(app.config['OUTPUT_FOLDER'], strip_filename)
     
-    # We use empty custom_coords for auto-spacing
-    create_photostrip(photos, strip_path, template_path, [])
+    create_photostrip(photos, strip_path, template_path, [], bg_color=bg_color, stickers_data=stickers_data)
     
     pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)
     num_copies = settings.get('copies', 2)
     create_a4_layout(strip_path, num_copies, pdf_path)
     
-    # Auto Print Logic for Windows
     if settings.get('auto_print'):
         try:
             os.startfile(os.path.abspath(pdf_path), "print")
