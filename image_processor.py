@@ -205,25 +205,51 @@ def create_photostrip(image_paths, output_path, template_path=None, custom_coord
     return output_path
 
 def create_a4_layout(strip_path, num_copies, output_pdf_path):
-    A4_WIDTH, A4_HEIGHT = 2480, 3508
-    page = Image.new('RGB', (A4_WIDTH, A4_HEIGHT), color='white')
+    # A4 at 300dpi is approx 2480 x 3508 pixels
+    A4_WIDTH = 2480
+    A4_HEIGHT = 3508
+    page = Image.new('RGB', (A4_WIDTH, A4_HEIGHT), 'white')
     draw = ImageDraw.Draw(page)
     
     strip = Image.open(strip_path)
     strip_w, strip_h = strip.size
     
-    spacing = 100
-    start_x = (A4_WIDTH - (strip_w * 3 + spacing * 2)) // 2
-    start_y = (A4_HEIGHT - strip_h) // 2
+    if num_copies <= 0:
+        page.save(output_pdf_path, "PDF", resolution=300.0)
+        return output_pdf_path
+        
+    num_copies = min(num_copies, 4) # Max 4 copies per page for safety
+    
+    # Calculate available space with 100px padding around the page
+    spacing = 50
+    avail_w = A4_WIDTH - 200
+    avail_h = A4_HEIGHT - 200
+    
+    # Max width per strip based on how many copies we need to fit side-by-side
+    max_w = (avail_w - (spacing * (num_copies - 1))) / num_copies
+    
+    # Scale strip to fit inside max_w and avail_h
+    scale = min(max_w / strip_w, avail_h / strip_h)
+    
+    new_w = int(strip_w * scale)
+    new_h = int(strip_h * scale)
+    strip = strip.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    
+    # Calculate centered starting position
+    total_content_w = (new_w * num_copies) + (spacing * (num_copies - 1))
+    start_x = (A4_WIDTH - total_content_w) // 2
+    start_y = (A4_HEIGHT - new_h) // 2
     
     current_x = start_x
     for i in range(num_copies):
-        if i >= 3: break
         page.paste(strip, (current_x, start_y))
-        if i < min(num_copies, 3) - 1:
-            line_x = current_x + strip_w + (spacing // 2)
+        
+        # Draw cut lines between strips
+        if i < num_copies - 1:
+            line_x = current_x + new_w + (spacing // 2)
             draw.line([(line_x, 0), (line_x, A4_HEIGHT)], fill="lightgray", width=4)
-        current_x += strip_w + spacing
+            
+        current_x += new_w + spacing
         
     page.save(output_pdf_path, "PDF", resolution=300.0)
     return output_pdf_path

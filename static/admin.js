@@ -39,7 +39,6 @@ async function loadData() {
     currentSettings = await setRes.json();
     if(currentSettings.active_template) select.value = currentSettings.active_template;
     document.getElementById('autoPrint').checked = currentSettings.auto_print || false;
-    document.getElementById('copies').value = currentSettings.copies || 2;
 }
 
 async function uploadTemplate() {
@@ -55,11 +54,10 @@ async function uploadTemplate() {
 async function saveSettings() {
     const active_template = document.getElementById('templateSelect').value;
     const auto_print = document.getElementById('autoPrint').checked;
-    const copies = parseInt(document.getElementById('copies').value);
     await fetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({active_template, auto_print, copies})
+        body: JSON.stringify({ active_template, auto_print })
     });
     alert("Saved!");
 }
