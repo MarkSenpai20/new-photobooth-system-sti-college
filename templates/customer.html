@@ -6,6 +6,7 @@
     <title>Photobooth</title>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/customer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&family=Pacifico&family=Bangers&family=Creepster&display=swap" rel="stylesheet">
     <style>
         .color-swatch {
             width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
@@ -159,6 +160,9 @@
                                 <select id="textOverlayFont" style="flex: 1; padding: 10px; font-size: 16px; font-family: 'Nunito', sans-serif;">
                                     <option value="Fredoka One">Fredoka One</option>
                                     <option value="Nunito">Nunito</option>
+                                    <option value="Pacifico">Pacifico</option>
+                                    <option value="Bangers">Bangers</option>
+                                    <option value="Creepster">Creepster</option>
                                     <option value="Arial">Arial</option>
                                 </select>
                             </div>
@@ -174,6 +178,14 @@
                         </div>
                         
                         <div style="margin-top: auto; padding-top: 20px;">
+                            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 2px solid #eee;">
+                                <label style="font-weight: bold; color: #333;">Strips per page:</label>
+                                <select id="numCopiesSelect" style="padding: 5px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc;">
+                                    <option value="1">1</option>
+                                    <option value="2" selected>2</option>
+                                    <option value="3">3</option>
+                                </select>
+                            </div>
                             <button class="btn-green" style="width: 100%; margin-bottom: 10px;" onclick="finishDesign()">Generate Print! 🖨️</button>
                             <button class="btn-pink" style="width: 100%;" onclick="backToArrangementFromDesign()">Back</button>
                         </div>

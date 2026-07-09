@@ -260,8 +260,8 @@ def generate(session_id):
     
     pdf_filename = f"{session_id}_print_{timestamp}.pdf"
     pdf_path = os.path.join(app.config['OUTPUT_FOLDER'], pdf_filename)
-    num_copies = settings.get('copies', 2)
-    create_a4_layout(strip_path, num_copies, pdf_path)
+    num_copies = data.get('copies', settings.get('copies', 2))
+    create_a4_layout(strip_path, int(num_copies), pdf_path)
     
     if settings.get('auto_print'):
         try:

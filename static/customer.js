@@ -781,6 +781,10 @@ async function finishDesign() {
     document.getElementById('generateTitle').style.display = 'block';
     document.getElementById('generateTitle').innerText = "Generating Magic... ✨";
     document.getElementById('generateLoader').style.display = 'block';
+    const copies = parseInt(document.getElementById('numCopiesSelect')?.value) || 2;
+    
+    document.getElementById('generateTitle').style.display = 'block';
+    document.getElementById('generateLoader').style.display = 'block';
     document.getElementById('finishControls').style.display = 'none';
     document.getElementById('finalStrip').style.display = 'none';
     
@@ -793,7 +797,8 @@ async function finishDesign() {
             selected_photos: arrangementSlots,
             bg_color: currentBgColor,
             shapes: currentShapes,
-            overlays: finalOverlays
+            overlays: finalOverlays,
+            copies: copies
         })
     });
     const data = await res.json();
