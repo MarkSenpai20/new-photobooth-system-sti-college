@@ -621,6 +621,22 @@ function renderLayersList() {
         delBtn.style.background = '#ffb3c6';
         delBtn.onclick = () => deleteLayer(overlay.id);
         
+        const sizeUpBtn = document.createElement('button');
+        sizeUpBtn.innerText = '➕';
+        sizeUpBtn.style.padding = '5px';
+        sizeUpBtn.style.margin = '0';
+        sizeUpBtn.title = 'Increase Size';
+        sizeUpBtn.onclick = () => resizeLayer(overlay.id, 1.2);
+        
+        const sizeDownBtn = document.createElement('button');
+        sizeDownBtn.innerText = '➖';
+        sizeDownBtn.style.padding = '5px';
+        sizeDownBtn.style.margin = '0';
+        sizeDownBtn.title = 'Decrease Size';
+        sizeDownBtn.onclick = () => resizeLayer(overlay.id, 0.8);
+        
+        controls.appendChild(sizeDownBtn);
+        controls.appendChild(sizeUpBtn);
         controls.appendChild(upBtn);
         controls.appendChild(downBtn);
         controls.appendChild(delBtn);
@@ -661,6 +677,21 @@ function deleteLayer(id) {
     const el = document.getElementById(id);
     if(el) el.remove();
     renderLayersList();
+}
+
+function resizeLayer(id, scaleFactor) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const overlay = overlays.find(o => o.id === id);
+    if (!overlay) return;
+    
+    if (overlay.type === 'text') {
+        const currentSize = parseFloat(window.getComputedStyle(el).fontSize);
+        el.style.fontSize = Math.max(10, currentSize * scaleFactor) + 'px';
+    } else if (overlay.type === 'sticker') {
+        const currentWidth = parseFloat(window.getComputedStyle(el).width);
+        el.style.width = Math.max(20, currentWidth * scaleFactor) + 'px';
+    }
 }
 
 function reorderDOM() {
