@@ -22,6 +22,15 @@
         .slot-item { background: #444; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
         .slot-item h4 { margin: 0 0 5px 0; }
         .slot-item select { width: 100%; margin-bottom: 5px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .plain-template-creator { flex-direction: column !important; }
+            .plain-template-creator > div { width: 100%; margin-bottom: 20px; }
+            .editor-modal-body { flex-direction: column !important; }
+            .slot-panel { width: 100%; max-height: 300px; }
+            .editor-tools { flex-wrap: wrap; }
+        }
     </style>
 </head>
 <body>
@@ -36,7 +45,7 @@
 
         <div class="card">
             <h2>2. Create Plain Template</h2>
-            <div style="display: flex; gap: 20px; align-items: flex-start;">
+            <div class="plain-template-creator" style="display: flex; gap: 20px; align-items: flex-start;">
                 <div style="flex: 1;">
                     <label>Name (e.g. 4_strip_classic):</label><br>
                     <input type="text" id="plainName" style="margin-bottom:10px; width:100%; padding:5px;"><br>
@@ -94,7 +103,7 @@
             </div>
             <span style="margin-left: 10px; font-size:12px;">Drag corners/edges to map perspective. Drag center to move shape. Or use Arrow Keys.</span>
         </div>
-        <div style="display: flex; flex: 1; overflow: hidden;">
+        <div class="editor-modal-body" style="display: flex; flex: 1; overflow: hidden;">
             <div class="canvas-container">
                 <canvas id="editorCanvas"></canvas>
             </div>
