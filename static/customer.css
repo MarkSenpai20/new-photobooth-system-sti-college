@@ -148,16 +148,35 @@ video.mirrored { transform: scaleX(-1); }
 }
 
 @media (max-width: 768px) {
-    #screen-camera {
-        flex-direction: column !important;
+    body {
         overflow-y: auto;
     }
+    .app-container {
+        height: auto;
+        min-height: 100vh;
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+    .screen {
+        height: auto;
+        justify-content: flex-start;
+    }
+    #screen-camera {
+        flex-direction: column !important;
+        overflow-y: visible;
+    }
     .camera-wrapper {
-        min-height: 300px;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
+    }
+    .camera-controls {
+        flex-wrap: wrap;
+        gap: 10px;
     }
     .design-layout-container {
         flex-direction: column;
-        overflow-y: auto;
+        overflow-y: visible;
     }
     .design-tools-panel {
         width: 100%;
