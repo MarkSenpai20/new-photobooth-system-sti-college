@@ -314,7 +314,7 @@ async function selectTemplate(tName) {
 
     if (libraryPhotos.length === 1) {
         arrangementSlots = new Array(maxSlots).fill(libraryPhotos[0]);
-        generateFromArrangement();
+        goToDesign();
         return;
     }
 
